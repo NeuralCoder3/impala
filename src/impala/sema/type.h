@@ -142,6 +142,8 @@ public:
         : PtrType(typetable, Tag_borrowed_ptr, pointee, mut, addr_space)
     {}
 
+    virtual const Type* tangent_vector() const override;
+
     std::string prefix() const override { return is_mut() ? "&mut " : "&"; }
 
 private:
@@ -153,6 +155,8 @@ public:
     OwnedPtrType(TypeTable& typetable, const Type* pointee, uint64_t addr_space)
         : PtrType(typetable, Tag_owned_ptr, pointee, true, addr_space)
     {}
+
+    virtual const Type* tangent_vector() const override;
 
     std::string prefix() const override { return "~"; }
 
