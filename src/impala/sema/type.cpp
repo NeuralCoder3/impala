@@ -347,10 +347,18 @@ const Type* FnType::rev_diffed_type() const {
     if (!is_returning())
         return table().type_error();
 
-    auto in_tan = return_type()->tangent_vector();
-    auto out_tan = params_without_return_continuation()->tangent_vector();
+    auto ret = return_type();
+//    std::cout << "Ret: " << ret << std::endl;
+    auto in_tan = ret->tangent_vector();
+    auto params = params_without_return_continuation();
+//    std::cout << "Params: " << params << " " << params->tag() << " " << is_ptr(params) << std::endl;
+    auto out_tan = params->tangent_vector();
 
-    auto pbtype = table().fn_type(table().tuple_type({in_tan, table().fn_type(out_tan)}));
+//    std::cout << "Out: " << out_tan << std::endl;
+
+    auto out_tan_fn = table().fn_type(out_tan);
+    auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
+    auto pbtype = table().fn_type(combined_tuple);
     if (auto t = params_without_return_continuation()->isa<TupleType>()) {
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
         Array<const Type*> params(t->num_ops() + 1);
@@ -425,6 +433,20 @@ const Type* TupleType::tangent_vector() const {
 const Type* StructType::tangent_vector() const {
     // TODO
     return nullptr;
+}
+
+const Type* BorrowedPtrType::tangent_vector() const {
+    auto elem_tangent_vector = pointee()->tangent_vector();
+    return elem_tangent_vector != nullptr
+           ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
+           : nullptr;
+}
+
+const Type* OwnedPtrType::tangent_vector() const {
+    auto elem_tangent_vector = pointee()->tangent_vector();
+    return elem_tangent_vector != nullptr
+           ? table().owned_ptr_type(elem_tangent_vector,addr_space())
+           : nullptr;
 }
 
 const Type* IndefiniteArrayType::tangent_vector() const {
