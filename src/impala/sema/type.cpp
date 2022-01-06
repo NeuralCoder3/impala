@@ -354,8 +354,13 @@ const Type* FnType::rev_diffed_type() const {
 //    std::cout << "Params: " << params << " " << params->tag() << " " << is_ptr(params) << std::endl;
     auto out_tan = params->tangent_vector();
 
-    if(!out_tan)
+    Stream s2;
+    s2.fmt("out_tan: {}\n", out_tan);
+
+    if(!out_tan){
+//    std::cout << "Out tan empty: " << out_tan << std::endl;
         out_tan=table().prim_type(PrimType_f32);
+    }
 
 //    std::cout << "Out: " << out_tan << std::endl;
 
@@ -364,9 +369,15 @@ const Type* FnType::rev_diffed_type() const {
 
     auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
     auto pbtype = table().fn_type(combined_tuple);
+
+    s2.fmt("pbtype: {}\n", pbtype);
 //    std::cout << "created pb type. " << std::endl;
-    if (auto t = params_without_return_continuation()->isa<TupleType>()) {
+    if (auto t = params_without_return_continuation()->isa<TupleType>();false) {
+//        std::cout << "tuple in" << std::endl;
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
+
+        // TODO: Problem if arg is only unit
+//    std::cout << "num ops " << t->num_ops() << std::endl;
         Array<const Type*> params(t->num_ops() + 1);
         for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
             params[i] = t->op(i);
@@ -380,11 +391,16 @@ const Type* FnType::rev_diffed_type() const {
         return table().fn_type(params);
     }
     else {
+//        std::cout << "no-tuple in" << std::endl;
         Array<const Type*> params(2);
         params[0] = params_without_return_continuation();
         params[1] = table().fn_type(table().tuple_type({return_type(), pbtype}));
 
-        return table().fn_type(params);
+        s2.fmt("params: {}\n", params);
+        auto fn_type = table().fn_type(params);
+        s2.fmt("params fn: {}\n", fn_type);
+
+        return fn_type;
     }
 
 #if 0
@@ -417,6 +433,8 @@ const Type* FnType::rev_diffed_type() const {
  */
 
 const Type* PrimType::tangent_vector() const {
+//        std::cout << "found prim" << std::endl;
+//    return this;
     return is_float(this) ? this : nullptr;
 }
 
@@ -437,6 +455,7 @@ const Type* TupleType::tangent_vector() const {
         }
     }
 
+//    std::cout << "tuple empty?: " << no_op_has_tangent << std::endl;
     return no_op_has_tangent ? nullptr : table().tuple_type(types);
 }
 
