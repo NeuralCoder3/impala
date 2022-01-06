@@ -354,19 +354,28 @@ const Type* FnType::rev_diffed_type() const {
 //    std::cout << "Params: " << params << " " << params->tag() << " " << is_ptr(params) << std::endl;
     auto out_tan = params->tangent_vector();
 
+    if(!out_tan)
+        out_tan=table().prim_type(PrimType_f32);
+
 //    std::cout << "Out: " << out_tan << std::endl;
 
     auto out_tan_fn = table().fn_type(out_tan);
+//    std::cout << "OutTanFn generated. " << std::endl;
+
     auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
     auto pbtype = table().fn_type(combined_tuple);
+//    std::cout << "created pb type. " << std::endl;
     if (auto t = params_without_return_continuation()->isa<TupleType>()) {
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
         Array<const Type*> params(t->num_ops() + 1);
         for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
             params[i] = t->op(i);
         }
+//        std::cout << "created params. " << std::endl;
         auto ret = table().tuple_type({return_type(), pbtype});
+//        std::cout << "created ret. " << std::endl;
         params.back() = table().fn_type(ret);
+//        std::cout << "created back. " << std::endl;
 
         return table().fn_type(params);
     }
@@ -421,7 +430,8 @@ const Type* TupleType::tangent_vector() const {
         // unit. This makes sure the position of tuple-elements matches the
         // positions of their tangent vectors.
         if (types[i] == nullptr) {
-            types[i] = table().unit();
+//            types[i] = table().unit();
+            types[i]=table().prim_type(PrimType_f32);
         } else {
             no_op_has_tangent = false;
         }
