@@ -466,18 +466,18 @@ const Type* StructType::tangent_vector() const {
 
 const Type* BorrowedPtrType::tangent_vector() const {
     auto elem_tangent_vector = pointee()->tangent_vector();
-    return elem_tangent_vector;
-//    return elem_tangent_vector != nullptr
-//           ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
-//           : nullptr;
+//    return elem_tangent_vector;
+    return elem_tangent_vector != nullptr
+           ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
+           : nullptr;
 }
 
 const Type* OwnedPtrType::tangent_vector() const {
     auto elem_tangent_vector = pointee()->tangent_vector();
-    return elem_tangent_vector;
-//    return elem_tangent_vector != nullptr
-//           ? table().owned_ptr_type(elem_tangent_vector,addr_space())
-//           : nullptr;
+//    return elem_tangent_vector;
+    return elem_tangent_vector != nullptr
+           ? table().owned_ptr_type(elem_tangent_vector,addr_space())
+           : nullptr;
 }
 
 const Type* IndefiniteArrayType::tangent_vector() const {
