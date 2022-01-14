@@ -355,7 +355,8 @@ const Type* FnType::rev_diffed_type() const {
     auto out_tan = params->tangent_vector();
 
     Stream s2;
-    s2.fmt("out_tan: {}\n", out_tan);
+    s2.fmt("in: {} => {}\n", ret, in_tan);
+    s2.fmt("out_tan: {} => {}\n", params,out_tan);
 
     if(!out_tan){
 //    std::cout << "Out tan empty: " << out_tan << std::endl;
@@ -466,18 +467,22 @@ const Type* StructType::tangent_vector() const {
 
 const Type* BorrowedPtrType::tangent_vector() const {
     auto elem_tangent_vector = pointee()->tangent_vector();
-//    return elem_tangent_vector;
-    return elem_tangent_vector != nullptr
-           ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
-           : nullptr;
+    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array) {
+        return elem_tangent_vector != nullptr
+               ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
+               : nullptr;
+    }
+    return elem_tangent_vector;
 }
 
 const Type* OwnedPtrType::tangent_vector() const {
     auto elem_tangent_vector = pointee()->tangent_vector();
-//    return elem_tangent_vector;
-    return elem_tangent_vector != nullptr
-           ? table().owned_ptr_type(elem_tangent_vector,addr_space())
-           : nullptr;
+    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array) {
+        return elem_tangent_vector != nullptr
+               ? table().owned_ptr_type(elem_tangent_vector,addr_space())
+               : nullptr;
+    }
+    return elem_tangent_vector;
 }
 
 const Type* IndefiniteArrayType::tangent_vector() const {
