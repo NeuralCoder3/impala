@@ -58,6 +58,7 @@ public:
 
         // if the return type is a sigma, flatten it
         auto sigma = ret_type->isa<thorin::Sigma>();
+        // TODO: not flatten for rev_diff pb cont
         if (sigma && !sigma->isa_nom()) {
             for (auto op : sigma->ops())
                 cont_args.push_back(op);
@@ -145,9 +146,12 @@ public:
  */
 
 const thorin::Def* CodeGen::convert_rec(const Type* type) {
+    Stream s2;
+    s2.fmt("convert type {}\n",type);
     if (auto lambda = type->isa<Lambda>()) {
         auto body = convert(lambda->body());
         auto pi = world.pi(world.kind(), body->type());
+        s2.fmt("  lambda to {}\n",pi);
         return world.lam(pi, body, world.dbg(lambda->name()));
     } else if (auto prim_type = type->isa<PrimType>()) {
         switch (prim_type->primtype_tag()) {
@@ -170,12 +174,21 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
         nops.push_back(world.type_mem());
         for (size_t i = 0, e = cn->num_params(); i != e; ++i)
             nops.push_back(convert(cn->param(i)));
-        return world.cn(nops);
+        auto cn_ty = world.cn(nops);
+        s2.fmt("  fn to {}\n",cn_ty);
+        return cn_ty;
     } else if (auto tuple_type = type->isa<TupleType>()) {
         std::vector<const thorin::Def*> nops;
-        for (auto&& op : tuple_type->ops())
-            nops.push_back(convert(op));
-        return world.sigma(nops);
+        s2.fmt("  tuple to sigma\n");
+        for (auto&& op : tuple_type->ops()) {
+            auto op_conv = convert(op);
+            s2.fmt("   op {} -> {}\n",op,op_conv);
+            nops.push_back(op_conv);
+        }
+        auto sig=world.sigma(nops);
+//        auto sig=world.sigma(nops,{},false);
+        s2.fmt("  sigma to {}\n",sig);
+        return sig;
     } else if (auto struct_type = type->isa<StructType>()) {
         auto s = world.nom_sigma(struct_type->num_ops(), world.dbg(struct_type->struct_decl()->symbol().c_str()));
         thorin_struct_type(struct_type) = s;
@@ -206,7 +219,9 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto ptr = type->isa<PtrType>()) {
         return world.type_ptr(convert(ptr->pointee()), ptr->addr_space());
     } else if (auto definite_array_type = type->isa<DefiniteArrayType>()) {
-        return world.arr(definite_array_type->dim(), convert(definite_array_type->elem_type()));
+        auto arr = world.arr(definite_array_type->dim(), convert(definite_array_type->elem_type()));
+        s2.fmt("  def array to {}\n",arr);
+        return arr;
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
@@ -873,9 +888,15 @@ const Def* MapExpr::remit(CodeGen& cg) const {
 
         auto ret_type = num_args() == cn->num_params() ? nullptr : cg.convert(cn->return_type());
         const Def* ret;
+        Stream s2;
+        s2.fmt("_cont callee {} : {}\n",dst, dst->type());
+        s2.fmt("_cont defs ({, })\n",defs);
+        s2.fmt("_cont type {}\n",ret_type);
         std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()));
         if (ret_type)
             cg.cur_mem = cg.cur_bb->var(0_s);
+
+        s2.fmt("_cont ret {}\n",ret);
 
         return ret;
     } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>()) {

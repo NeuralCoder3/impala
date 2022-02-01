@@ -340,7 +340,12 @@ const InferError* TypeTable::infer_error(const Type* dst, const Type* src) {
 const Type* FnType::params_without_return_continuation() const {
     auto types = is_returning() ? domain()->ops().skip_back()
                                 : domain()->ops();
-    return types.size() == 1 ? types.front() : table().tuple_type(types);
+
+    // for now (also see emit -> tuple/Sigma generation)
+    if(types.size()==1 && types.front()->tag()!=Tag::Tag_tuple) {
+        return types.front();
+    }
+    return table().tuple_type(types);
 }
 
 const Type* FnType::rev_diffed_type() const {
@@ -461,8 +466,41 @@ const Type* TupleType::tangent_vector() const {
 }
 
 const Type* StructType::tangent_vector() const {
-    // TODO
-    return nullptr;
+    auto decl=struct_decl();
+    auto size = num_ops(); // or num_field_decls
+
+//    Stream s2;
+//    s2.fmt("decl {}\n", decl);
+
+
+    auto cpy = table().struct_type(decl,size);
+//    s2.fmt("copied \n");
+
+    for (int i = 0; i < size; ++i) {
+//        s2.fmt("op {} {}\n", i, op(i));
+        cpy->set(i,op(i)->tangent_vector());
+//        auto fd=cpy->struct_decl()->field_decl(1)->type();
+//        s2.fmt("afterward {} {}\n", i, cpy->op(i));
+    }
+
+//    s2.fmt("decl2 {}\n", decl);
+//    s2.fmt("cpy {}\n", cpy->struct_decl());
+//
+//    s2.fmt("struct {}\n", this);
+//    s2.fmt("order {}\n", order());
+//    s2.fmt("num_ops {}\n", num_ops());
+//    s2.fmt("num_fields {}\n", decl->num_field_decls());
+//    s2.fmt("num_ast {}\n", decl->num_ast_type_params());
+//    s2.fmt("op 0 {}\n", op(0));
+//    s2.fmt("op 1 {}\n", op(1));
+//    s2.fmt("cpy op 0 {}\n", cpy->op(0));
+//    s2.fmt("cpy op 1 {}\n", cpy->op(1));
+//    s2.fmt("field 1 {}\n", struct_decl()->field_decl(1));
+//    s2.fmt("cpy field 1 {}\n", cpy->struct_decl()->field_decl(1));
+
+    // TODO: set field decl types => needs new struct
+//    return nullptr;
+    return cpy;
 }
 
 const Type* BorrowedPtrType::tangent_vector() const {

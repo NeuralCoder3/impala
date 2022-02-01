@@ -522,7 +522,9 @@ public:
     const Type* app(const Type* callee, const Type* op);
     const Lambda* lambda(const Type* body, const char* name) { return unify(new Lambda(*this, body, name)); }
 
-    const TupleType* tuple_type(Types ops) { assert(ops.size() != 1); return unify(new TupleType(*this, ops)); }
+    // Removed temporarily to allow for axioms preserving single tuple arguments
+    // `assert(ops.size() != 1);`
+    const TupleType* tuple_type(Types ops) {  return unify(new TupleType(*this, ops)); }
     const TupleType* unit() { return unit_; }
 
     const StructType* struct_type(const StructDecl* decl, size_t size);
