@@ -146,12 +146,13 @@ public:
  */
 
 const thorin::Def* CodeGen::convert_rec(const Type* type) {
-    Stream s2;
-    s2.fmt("convert type {}\n",type);
+//    Stream s2;
+// Waring: This print statement raises errors for unit types (at random points)
+//    s2.fmt("convert type {}\n",type);
     if (auto lambda = type->isa<Lambda>()) {
         auto body = convert(lambda->body());
         auto pi = world.pi(world.kind(), body->type());
-        s2.fmt("  lambda to {}\n",pi);
+//        s2.fmt("  lambda to {}\n",pi);
         return world.lam(pi, body, world.dbg(lambda->name()));
     } else if (auto prim_type = type->isa<PrimType>()) {
         switch (prim_type->primtype_tag()) {
@@ -170,24 +171,37 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
             default: THORIN_UNREACHABLE;
         }
     } else if (auto cn = type->isa<FnType>()) {
+//        s2.fmt("  convert Fn type with {} args\n",cn->num_params());
+//        s2.fmt("  fn arg 0 exists: {}\n",cn->op(0) ? 1 : 0);
+//        s2.fmt("  fn arg 0: {}\n",cn->op(0));
+//        s2.fmt("  fn is tuple arg: {}\n",cn->op(0)->isa<TupleType>() ? 1 : 0);
+        // TODO: why suddenly one more?
         std::vector<const thorin::Def*> nops;
         nops.push_back(world.type_mem());
-        for (size_t i = 0, e = cn->num_params(); i != e; ++i)
-            nops.push_back(convert(cn->param(i)));
+        for (size_t i = 0, e = cn->num_params(); i != e; ++i) {
+//            s2.fmt("  arg #{}\n",i);
+//            auto param=cn->param(i);
+//            s2.fmt("  convert Fn arg {}\n",param);
+//            auto res=convert(param);
+            auto res=convert(cn->param(i));
+//            s2.fmt("  converted to {}\n",res);
+            nops.push_back(res);
+        }
+//        s2.fmt("  converted params\n");
         auto cn_ty = world.cn(nops);
-        s2.fmt("  fn to {}\n",cn_ty);
+//        s2.fmt("  fn to {}\n",cn_ty);
         return cn_ty;
     } else if (auto tuple_type = type->isa<TupleType>()) {
         std::vector<const thorin::Def*> nops;
-        s2.fmt("  tuple to sigma\n");
+//        s2.fmt("  tuple to sigma\n");
         for (auto&& op : tuple_type->ops()) {
             auto op_conv = convert(op);
-            s2.fmt("   op {} -> {}\n",op,op_conv);
+//            s2.fmt("   op {} -> {}\n",op,op_conv);
             nops.push_back(op_conv);
         }
         auto sig=world.sigma(nops);
 //        auto sig=world.sigma(nops,{},false);
-        s2.fmt("  sigma to {}\n",sig);
+//        s2.fmt("  sigma to {}\n",sig);
         return sig;
     } else if (auto struct_type = type->isa<StructType>()) {
         auto s = world.nom_sigma(struct_type->num_ops(), world.dbg(struct_type->struct_decl()->symbol().c_str()));
@@ -220,7 +234,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
         return world.type_ptr(convert(ptr->pointee()), ptr->addr_space());
     } else if (auto definite_array_type = type->isa<DefiniteArrayType>()) {
         auto arr = world.arr(definite_array_type->dim(), convert(definite_array_type->elem_type()));
-        s2.fmt("  def array to {}\n",arr);
+//        s2.fmt("  def array to {}\n",arr);
         return arr;
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));

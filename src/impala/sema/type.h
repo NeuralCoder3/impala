@@ -74,7 +74,7 @@ public:
 
     Stream& stream(Stream&) const override;
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
 private:
     const Type* vrebuild(TypeTable&, Types) const override;
@@ -142,7 +142,7 @@ public:
         : PtrType(typetable, Tag_borrowed_ptr, pointee, mut, addr_space)
     {}
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
     std::string prefix() const override { return is_mut() ? "&mut " : "&"; }
 
@@ -156,7 +156,7 @@ public:
         : PtrType(typetable, Tag_owned_ptr, pointee, true, addr_space)
     {}
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
     std::string prefix() const override { return "~"; }
 
@@ -221,6 +221,9 @@ public:
     Stream& stream(Stream&) const override;
 
     const Type* rev_diffed_type() const;
+
+    virtual const Type* tangent_vector(bool left=false) const override;
+
 private:
     const Type* vrebuild(TypeTable&, Types) const override;
 
@@ -311,7 +314,7 @@ public:
     const Type* vrebuild(TypeTable& to, Types ops) const override;
     Stream& stream(Stream&) const override;
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
     friend class TypeTable;
 };
@@ -329,7 +332,7 @@ public:
     const StructDecl* struct_decl() const { return decl_; }
     void set(size_t i, const Type* type) const { return const_cast<StructType*>(this)->Type::set(i, type); }
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
 private:
     const Type* vrebuild(TypeTable& to, Types ops) const override;
@@ -384,7 +387,7 @@ public:
 
     Stream& stream(Stream&) const override;
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 private:
     const Type* vrebuild(TypeTable&, Types) const override;
 
@@ -406,7 +409,7 @@ public:
 
     Stream& stream(Stream&) const override;
 
-    virtual const Type* tangent_vector() const override;
+    virtual const Type* tangent_vector(bool left=false) const override;
 
 private:
     const Type* vrebuild(TypeTable&, Types) const override;

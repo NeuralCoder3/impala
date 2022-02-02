@@ -378,36 +378,36 @@ const Type* FnType::rev_diffed_type() const {
 
     s2.fmt("pbtype: {}\n", pbtype);
 //    std::cout << "created pb type. " << std::endl;
-    if (auto t = params_without_return_continuation()->isa<TupleType>();false) {
-//        std::cout << "tuple in" << std::endl;
-        // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
-
-        // TODO: Problem if arg is only unit
-//    std::cout << "num ops " << t->num_ops() << std::endl;
-        Array<const Type*> params(t->num_ops() + 1);
-        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
-            params[i] = t->op(i);
-        }
-//        std::cout << "created params. " << std::endl;
-        auto ret = table().tuple_type({return_type(), pbtype});
-//        std::cout << "created ret. " << std::endl;
-        params.back() = table().fn_type(ret);
-//        std::cout << "created back. " << std::endl;
-
-        return table().fn_type(params);
-    }
-    else {
+//    if (auto t = params_without_return_continuation()->isa<TupleType>();false) {
+////        std::cout << "tuple in" << std::endl;
+//        // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
+//
+//        // TODO: Problem if arg is only unit
+////    std::cout << "num ops " << t->num_ops() << std::endl;
+//        Array<const Type*> params(t->num_ops() + 1);
+//        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
+//            params[i] = t->op(i);
+//        }
+////        std::cout << "created params. " << std::endl;
+//        auto ret = table().tuple_type({return_type(), pbtype});
+////        std::cout << "created ret. " << std::endl;
+//        params.back() = table().fn_type(ret);
+////        std::cout << "created back. " << std::endl;
+//
+//        return table().fn_type(params);
+//    }
+//    else {
 //        std::cout << "no-tuple in" << std::endl;
-        Array<const Type*> params(2);
-        params[0] = params_without_return_continuation();
-        params[1] = table().fn_type(table().tuple_type({return_type(), pbtype}));
+        Array<const Type*> res_params(2);
+        res_params[0] = params_without_return_continuation()->tangent_vector(true);
+        res_params[1] = table().fn_type(table().tuple_type({return_type()->tangent_vector(true), pbtype}));
 
-        s2.fmt("params: {}\n", params);
-        auto fn_type = table().fn_type(params);
+        s2.fmt("params: {}\n", res_params);
+        auto fn_type = table().fn_type(res_params);
         s2.fmt("params fn: {}\n", fn_type);
 
         return fn_type;
-    }
+//    }
 
 #if 0
     // for now, we just say that in_tan is precisely the type of the singular seed value
@@ -438,22 +438,32 @@ const Type* FnType::rev_diffed_type() const {
  * tangent_vector
  */
 
-const Type* PrimType::tangent_vector() const {
-//        std::cout << "found prim" << std::endl;
-//    return this;
-    return is_float(this) ? this : nullptr;
+const Type* FnType::tangent_vector(bool left) const {
+//    Stream s2;
+//    s2.fmt("compute tangent type of function\n");
+//    return left ? this : nullptr;
+    if(!left)
+        return nullptr;
+
+    return rev_diffed_type();
 }
 
-const Type* TupleType::tangent_vector() const {
+const Type* PrimType::tangent_vector(bool left) const {
+//        std::cout << "found prim" << std::endl;
+//    return this;
+    return (is_float(this) || left) ? this : nullptr;
+}
+
+const Type* TupleType::tangent_vector(bool left) const {
     Array<const Type*> types(num_ops());
     bool no_op_has_tangent = true;
     for (size_t i = 0, e = num_ops(); i != e; ++i) {
-        types[i] = op(i)->tangent_vector();
+        types[i] = op(i)->tangent_vector(left);
 
         // In case one of the elements is non-differentiable, we replace it by
         // unit. This makes sure the position of tuple-elements matches the
         // positions of their tangent vectors.
-        if (types[i] == nullptr) {
+        if (types[i] == nullptr) {// not the case for left
 //            types[i] = table().unit();
             types[i]=table().prim_type(PrimType_f32);
         } else {
@@ -465,7 +475,7 @@ const Type* TupleType::tangent_vector() const {
     return no_op_has_tangent ? nullptr : table().tuple_type(types);
 }
 
-const Type* StructType::tangent_vector() const {
+const Type* StructType::tangent_vector(bool left) const {
     auto decl=struct_decl();
     auto size = num_ops(); // or num_field_decls
 
@@ -478,7 +488,7 @@ const Type* StructType::tangent_vector() const {
 
     for (int i = 0; i < size; ++i) {
 //        s2.fmt("op {} {}\n", i, op(i));
-        cpy->set(i,op(i)->tangent_vector());
+        cpy->set(i,op(i)->tangent_vector(left));
 //        auto fd=cpy->struct_decl()->field_decl(1)->type();
 //        s2.fmt("afterward {} {}\n", i, cpy->op(i));
     }
@@ -503,9 +513,9 @@ const Type* StructType::tangent_vector() const {
     return cpy;
 }
 
-const Type* BorrowedPtrType::tangent_vector() const {
-    auto elem_tangent_vector = pointee()->tangent_vector();
-    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array) {
+const Type* BorrowedPtrType::tangent_vector(bool left) const {
+    auto elem_tangent_vector = pointee()->tangent_vector(left);
+    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
         return elem_tangent_vector != nullptr
                ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
                : nullptr;
@@ -513,9 +523,9 @@ const Type* BorrowedPtrType::tangent_vector() const {
     return elem_tangent_vector;
 }
 
-const Type* OwnedPtrType::tangent_vector() const {
-    auto elem_tangent_vector = pointee()->tangent_vector();
-    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array) {
+const Type* OwnedPtrType::tangent_vector(bool left) const {
+    auto elem_tangent_vector = pointee()->tangent_vector(left);
+    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
         return elem_tangent_vector != nullptr
                ? table().owned_ptr_type(elem_tangent_vector,addr_space())
                : nullptr;
@@ -523,15 +533,15 @@ const Type* OwnedPtrType::tangent_vector() const {
     return elem_tangent_vector;
 }
 
-const Type* IndefiniteArrayType::tangent_vector() const {
-    auto elem_tangent_vector = elem_type()->tangent_vector();
+const Type* IndefiniteArrayType::tangent_vector(bool left) const {
+    auto elem_tangent_vector = elem_type()->tangent_vector(left);
     return elem_tangent_vector != nullptr
             ? table().indefinite_array_type(elem_tangent_vector)
             : nullptr;
 }
 
-const Type* DefiniteArrayType::tangent_vector() const {
-    auto elem_tangent_vector = elem_type()->tangent_vector();
+const Type* DefiniteArrayType::tangent_vector(bool left) const {
+    auto elem_tangent_vector = elem_type()->tangent_vector(left);
     return elem_tangent_vector != nullptr
             ? table().definite_array_type(elem_tangent_vector, dim())
             : nullptr;

@@ -135,7 +135,10 @@ public:
 
     /// The type of a partial derivative when applying the grad-operator.
     /// nullptr if the type cannot be derived.
-    virtual const TypeBase* tangent_vector() const { return nullptr; }
+    /// left for identity (except function types for higher order diff) => will not be nullptr
+    virtual const TypeBase* tangent_vector(bool left=false) const {
+        return left ? this : nullptr;
+    }
 
     static size_t gid_counter() { return gid_counter_; }
     virtual Stream& stream(Stream&) const = 0;
