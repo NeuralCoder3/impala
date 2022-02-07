@@ -365,7 +365,8 @@ const Type* FnType::rev_diffed_type() const {
 
     if(!out_tan){
 //    std::cout << "Out tan empty: " << out_tan << std::endl;
-        out_tan=table().prim_type(PrimType_f32);
+//        out_tan=table().prim_type(PrimType_f32);
+        out_tan=table().prim_type(PrimType_f64);
     }
 
 //    std::cout << "Out: " << out_tan << std::endl;
@@ -465,7 +466,9 @@ const Type* TupleType::tangent_vector(bool left) const {
         // positions of their tangent vectors.
         if (types[i] == nullptr) {// not the case for left
 //            types[i] = table().unit();
-            types[i]=table().prim_type(PrimType_f32);
+//            types[i]=table().prim_type(PrimType_f32);
+// TODO: one place for nullptr / default type
+            types[i]=table().prim_type(PrimType_f64);
         } else {
             no_op_has_tangent = false;
         }
