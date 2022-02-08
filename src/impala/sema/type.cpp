@@ -337,6 +337,8 @@ const InferError* TypeTable::infer_error(const Type* dst, const Type* src) {
  * gradients
  */
 
+auto dummy_deriv = PrimType_f64;
+
 const Type* FnType::params_without_return_continuation() const {
     auto types = is_returning() ? domain()->ops().skip_back()
                                 : domain()->ops();
@@ -359,14 +361,14 @@ const Type* FnType::rev_diffed_type() const {
 //    std::cout << "Params: " << params << " " << params->tag() << " " << is_ptr(params) << std::endl;
     auto out_tan = params->tangent_vector();
 
-    Stream s2;
-    s2.fmt("in: {} => {}\n", ret, in_tan);
-    s2.fmt("out_tan: {} => {}\n", params,out_tan);
+//    Stream s2;
+//    s2.fmt("in: {} => {}\n", ret, in_tan);
+//    s2.fmt("out_tan: {} => {}\n", params,out_tan);
 
     if(!out_tan){
 //    std::cout << "Out tan empty: " << out_tan << std::endl;
 //        out_tan=table().prim_type(PrimType_f32);
-        out_tan=table().prim_type(PrimType_f64);
+        out_tan=table().prim_type(dummy_deriv);
     }
 
 //    std::cout << "Out: " << out_tan << std::endl;
@@ -374,10 +376,18 @@ const Type* FnType::rev_diffed_type() const {
     auto out_tan_fn = table().fn_type(out_tan);
 //    std::cout << "OutTanFn generated. " << std::endl;
 
+    if(!in_tan){
+//    std::cout << "Out tan empty: " << out_tan << std::endl;
+//        out_tan=table().prim_type(PrimType_f32);
+        in_tan=table().prim_type(dummy_deriv);
+    }
+
     auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
     auto pbtype = table().fn_type(combined_tuple);
 
-    s2.fmt("pbtype: {}\n", pbtype);
+//    s2.fmt("pbtype: {}\n", pbtype);
+
+
 //    std::cout << "created pb type. " << std::endl;
 //    if (auto t = params_without_return_continuation()->isa<TupleType>();false) {
 ////        std::cout << "tuple in" << std::endl;
@@ -401,11 +411,13 @@ const Type* FnType::rev_diffed_type() const {
 //        std::cout << "no-tuple in" << std::endl;
         Array<const Type*> res_params(2);
         res_params[0] = params_without_return_continuation()->tangent_vector(true);
-        res_params[1] = table().fn_type(table().tuple_type({return_type()->tangent_vector(true), pbtype}));
+        auto ret_ty = return_type()->tangent_vector(true);
+        assert(ret_ty);
+        res_params[1] = table().fn_type(table().tuple_type({ret_ty, pbtype}));
 
-        s2.fmt("params: {}\n", res_params);
+//        s2.fmt("params: {}\n", res_params);
         auto fn_type = table().fn_type(res_params);
-        s2.fmt("params fn: {}\n", fn_type);
+//        s2.fmt("params fn: {}\n", fn_type);
 
         return fn_type;
 //    }
@@ -468,14 +480,14 @@ const Type* TupleType::tangent_vector(bool left) const {
 //            types[i] = table().unit();
 //            types[i]=table().prim_type(PrimType_f32);
 // TODO: one place for nullptr / default type
-            types[i]=table().prim_type(PrimType_f64);
+            types[i]=table().prim_type(dummy_deriv);
         } else {
             no_op_has_tangent = false;
         }
     }
 
 //    std::cout << "tuple empty?: " << no_op_has_tangent << std::endl;
-    return no_op_has_tangent ? nullptr : table().tuple_type(types);
+    return (no_op_has_tangent && !left) ? nullptr : table().tuple_type(types);
 }
 
 const Type* StructType::tangent_vector(bool left) const {
