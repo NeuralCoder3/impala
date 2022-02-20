@@ -344,11 +344,32 @@ const Type* FnType::params_without_return_continuation() const {
                                 : domain()->ops();
 
     // for now (also see emit -> tuple/Sigma generation)
-    if(types.size()==1 && types.front()->tag()!=Tag::Tag_tuple) {
-        return types.front();
-    }
+//    if(types.size()==1 && types.front()->tag()!=Tag::Tag_tuple) {
+//        return types.front();
+//    }
     return table().tuple_type(types);
 }
+
+const FnType* TypeTable::flat_fun(const Type* dom, const Type* codom) {
+    if (auto t = dom->isa<TupleType>()) {
+        // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
+        Array<const Type*> params(t->num_ops() + 1);
+        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
+            params[i] = t->op(i);
+        }
+        params.back() = fn_type(codom);
+
+        return fn_type(params);
+    }
+    else {
+        Array<const Type*> params(2);
+        params[0] = dom;
+        params[1] = fn_type(codom);
+
+        return fn_type(params);
+    }
+}
+
 
 const Type* FnType::rev_diffed_type() const {
     if (!is_returning())
@@ -373,7 +394,7 @@ const Type* FnType::rev_diffed_type() const {
 
 //    std::cout << "Out: " << out_tan << std::endl;
 
-    auto out_tan_fn = table().fn_type(out_tan);
+//    auto out_tan_fn = table().fn_type(out_tan);
 //    std::cout << "OutTanFn generated. " << std::endl;
 
     if(!in_tan){
@@ -382,8 +403,9 @@ const Type* FnType::rev_diffed_type() const {
         in_tan=table().prim_type(dummy_deriv);
     }
 
-    auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
-    auto pbtype = table().fn_type(combined_tuple);
+//    auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
+//    auto pbtype = table().fn_type(combined_tuple);
+    auto pbtype=table().flat_fun(in_tan,out_tan);
 
 //    s2.fmt("pbtype: {}\n", pbtype);
 
@@ -409,15 +431,20 @@ const Type* FnType::rev_diffed_type() const {
 //    }
 //    else {
 //        std::cout << "no-tuple in" << std::endl;
-        Array<const Type*> res_params(2);
-        res_params[0] = params_without_return_continuation()->tangent_vector(true);
+//        Array<const Type*> res_params(2);
+//        res_params[0] = params_without_return_continuation()->tangent_vector(true);
         auto ret_ty = return_type()->tangent_vector(true);
-        assert(ret_ty);
-        res_params[1] = table().fn_type(table().tuple_type({ret_ty, pbtype}));
-
-//        s2.fmt("params: {}\n", res_params);
-        auto fn_type = table().fn_type(res_params);
+//        assert(ret_ty);
+//        res_params[1] = table().fn_type(table().tuple_type({ret_ty, pbtype}));
+//
+////        s2.fmt("params: {}\n", res_params);
+//        auto fn_type = table().fn_type(res_params);
 //        s2.fmt("params fn: {}\n", fn_type);
+
+        auto fn_type = table().flat_fun(
+                params_without_return_continuation()->tangent_vector(true),
+                table().tuple_type({ret_ty, pbtype})
+        );
 
         return fn_type;
 //    }
