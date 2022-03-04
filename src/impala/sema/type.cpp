@@ -347,10 +347,36 @@ const Type* FnType::params_without_return_continuation() const {
 //    if(types.size()==1 && types.front()->tag()!=Tag::Tag_tuple) {
 //        return types.front();
 //    }
+    if(types.size()==1) {
+        return types.front();
+    }
     return table().tuple_type(types);
 }
 
+const FnType* TypeTable::half_flat_fun(const Type* dom, const Type* codom) {
+    if (auto t = dom->isa<TupleType>()) {
+        // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
+        Array<const Type*> params(t->num_ops() + 1);
+        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
+            params[i] = t->op(i);
+        }
+        params.back() = fn_type(codom);
+
+        return fn_type(params);
+    }
+    else {
+        Array<const Type*> params(2);
+        params[0] = dom;
+        params[1] = fn_type(codom);
+
+        return fn_type(params);
+    }
+}
+
 const FnType* TypeTable::flat_fun(const Type* dom, const Type* codom) {
+
+
+    // same as half_flat
     if (auto t = dom->isa<TupleType>()) {
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
         Array<const Type*> params(t->num_ops() + 1);
@@ -441,10 +467,24 @@ const Type* FnType::rev_diffed_type() const {
 //        auto fn_type = table().fn_type(res_params);
 //        s2.fmt("params fn: {}\n", fn_type);
 
+        const Type* codom;
+
+        if (auto t = ret_ty->isa<TupleType>()) {
+            Array<const Type*> ret_pb(t->num_ops() + 1);
+            for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
+                ret_pb[i] = t->op(i);
+            }
+            ret_pb.back() = pbtype;
+            codom=table().tuple_type(ret_pb);
+        }else {
+            codom=table().tuple_type({ret_ty,pbtype});
+        }
+
         auto fn_type = table().flat_fun(
                 params_without_return_continuation()->tangent_vector(true),
-                table().tuple_type({ret_ty, pbtype})
-        );
+                codom
+//    table().tuple_type({ret_ty, pbtype})
+    );
 
         return fn_type;
 //    }

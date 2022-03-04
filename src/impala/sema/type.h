@@ -538,6 +538,7 @@ public:
     const DefiniteArrayType* definite_array_type(const Type* elem_type, uint64_t dim) {
         return unify(new DefiniteArrayType(*this, elem_type, dim));
     }
+    const FnType* half_flat_fun(const Type* dom, const Type* codom);
     const FnType* flat_fun(const Type* dom, const Type* codom);
     const FnType* fn_type(const Type* op) { return unify(new FnType(*this, op)); }
     const FnType* fn_type(Types params) { return unify(new FnType(*this, params.size() == 1 ? params.front() : tuple_type(params))); }
