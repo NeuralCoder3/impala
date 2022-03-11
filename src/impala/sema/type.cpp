@@ -617,9 +617,14 @@ const Type* OwnedPtrType::tangent_vector(bool left) const {
 
 const Type* IndefiniteArrayType::tangent_vector(bool left) const {
     auto elem_tangent_vector = elem_type()->tangent_vector(left);
-    return elem_tangent_vector != nullptr
-            ? table().indefinite_array_type(elem_tangent_vector)
-            : nullptr;
+    if(elem_tangent_vector == nullptr)
+        return nullptr;
+
+    Array<const Type*> ty(2);
+    ty[0] = table().prim_type(PrimType_u32);
+    ty[1] = table().indefinite_array_type(elem_tangent_vector);
+
+    return table().tuple_type(ty);
 }
 
 const Type* DefiniteArrayType::tangent_vector(bool left) const {
