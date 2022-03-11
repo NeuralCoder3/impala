@@ -598,9 +598,14 @@ const Type* StructType::tangent_vector(bool left) const {
 const Type* BorrowedPtrType::tangent_vector(bool left) const {
     auto elem_tangent_vector = pointee()->tangent_vector(left);
     if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
-        return elem_tangent_vector != nullptr
-               ? table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space())
-               : nullptr;
+        if(elem_tangent_vector== nullptr)
+            return nullptr;
+
+        Array<const Type*> ty(2);
+        ty[0] = table().prim_type(PrimType_u32);
+        ty[1] = table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space());
+
+        return table().tuple_type(ty);
     }
     return elem_tangent_vector;
 }
@@ -608,23 +613,25 @@ const Type* BorrowedPtrType::tangent_vector(bool left) const {
 const Type* OwnedPtrType::tangent_vector(bool left) const {
     auto elem_tangent_vector = pointee()->tangent_vector(left);
     if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
-        return elem_tangent_vector != nullptr
-               ? table().owned_ptr_type(elem_tangent_vector,addr_space())
-               : nullptr;
+        if(elem_tangent_vector== nullptr)
+            return nullptr;
+
+        Array<const Type*> ty(2);
+        ty[0] = table().prim_type(PrimType_u32);
+        ty[1] = table().owned_ptr_type(elem_tangent_vector,addr_space());
+
+        return table().tuple_type(ty);
     }
     return elem_tangent_vector;
 }
 
 const Type* IndefiniteArrayType::tangent_vector(bool left) const {
     auto elem_tangent_vector = elem_type()->tangent_vector(left);
-    if(elem_tangent_vector == nullptr)
-        return nullptr;
 
-    Array<const Type*> ty(2);
-    ty[0] = table().prim_type(PrimType_u32);
-    ty[1] = table().indefinite_array_type(elem_tangent_vector);
-
-    return table().tuple_type(ty);
+    // the fat pointer conversion has to be done at pointer level
+    return elem_tangent_vector != nullptr
+           ? table().indefinite_array_type(elem_tangent_vector)
+           : nullptr;
 }
 
 const Type* DefiniteArrayType::tangent_vector(bool left) const {
