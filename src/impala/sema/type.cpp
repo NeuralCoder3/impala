@@ -597,32 +597,50 @@ const Type* StructType::tangent_vector(bool left) const {
 
 const Type* BorrowedPtrType::tangent_vector(bool left) const {
     auto elem_tangent_vector = pointee()->tangent_vector(left);
-    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
-        if(elem_tangent_vector== nullptr)
-            return nullptr;
+    auto isArr = pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array;
+    if(elem_tangent_vector== nullptr)
+        return nullptr;
+    auto pointer_wrap = table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space());
+    if(isArr) {
+        if(!left)
+            return pointer_wrap;
 
         Array<const Type*> ty(2);
         ty[0] = table().prim_type(PrimType_u32);
-        ty[1] = table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space());
+        ty[1] = pointer_wrap;
 
         return table().tuple_type(ty);
+    }else if(left) {
+        // no array, left type
+        return pointer_wrap;
+    }else {
+        // no array, compute tangent type by removing ptr => as content
+        return elem_tangent_vector;
     }
-    return elem_tangent_vector;
 }
 
 const Type* OwnedPtrType::tangent_vector(bool left) const {
     auto elem_tangent_vector = pointee()->tangent_vector(left);
-    if(pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array || left) {
-        if(elem_tangent_vector== nullptr)
-            return nullptr;
+    auto isArr = pointee()->tag()==Tag_indefinite_array || pointee()->tag()==Tag_definite_array;
+    if(elem_tangent_vector== nullptr)
+        return nullptr;
+    auto pointer_wrap = table().owned_ptr_type(elem_tangent_vector,addr_space());
+    if(isArr) {
+        if(!left)
+            return pointer_wrap;
 
         Array<const Type*> ty(2);
         ty[0] = table().prim_type(PrimType_u32);
-        ty[1] = table().owned_ptr_type(elem_tangent_vector,addr_space());
+        ty[1] = pointer_wrap;
 
         return table().tuple_type(ty);
+    }else if(left) {
+        // no array, left type
+        return pointer_wrap;
+    }else {
+        // no array, compute tangent type by removing ptr => as content
+        return elem_tangent_vector;
     }
-    return elem_tangent_vector;
 }
 
 const Type* IndefiniteArrayType::tangent_vector(bool left) const {
