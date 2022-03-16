@@ -606,7 +606,7 @@ const Type* BorrowedPtrType::tangent_vector(bool left) const {
             return pointer_wrap;
 
         Array<const Type*> ty(2);
-        ty[0] = table().prim_type(PrimType_u32);
+        ty[0] = table().prim_type(PrimType_u64);
         ty[1] = pointer_wrap;
 
         return table().tuple_type(ty);
@@ -630,7 +630,7 @@ const Type* OwnedPtrType::tangent_vector(bool left) const {
             return pointer_wrap;
 
         Array<const Type*> ty(2);
-        ty[0] = table().prim_type(PrimType_u32);
+        ty[0] = table().prim_type(PrimType_u64);
         ty[1] = pointer_wrap;
 
         return table().tuple_type(ty);
