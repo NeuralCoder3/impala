@@ -602,8 +602,8 @@ const Type* BorrowedPtrType::tangent_vector(bool left) const {
         return nullptr;
     auto pointer_wrap = table().borrowed_ptr_type(elem_tangent_vector,is_mut(),addr_space());
     if(isArr) {
-        if(!left)
-            return pointer_wrap;
+//        if(!left)
+//            return pointer_wrap;
 
         Array<const Type*> ty(2);
         ty[0] = table().prim_type(PrimType_u64);
@@ -626,8 +626,8 @@ const Type* OwnedPtrType::tangent_vector(bool left) const {
         return nullptr;
     auto pointer_wrap = table().owned_ptr_type(elem_tangent_vector,addr_space());
     if(isArr) {
-        if(!left)
-            return pointer_wrap;
+//        if(!left)
+//            return pointer_wrap;
 
         Array<const Type*> ty(2);
         ty[0] = table().prim_type(PrimType_u64);
