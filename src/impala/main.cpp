@@ -17,8 +17,6 @@
 #include "impala/cgen.h"
 #include "impala/impala.h"
 
-using thorin::Stream;
-
 //------------------------------------------------------------------------------
 
 typedef std::vector<std::string> Names;
@@ -114,18 +112,10 @@ int main(int argc, char** argv) {
 
         thorin::World world(module_name);
         impala::init();
-        world.set(std::make_unique<thorin::ErrorHandler>());
 
         std::ofstream log_stream;
-        world.set(std::make_shared<thorin::Stream>(*open(log_stream, log_name)));
-
-        if (false) {}
-        else if (log_level == "error")   world.set(thorin::LogLevel::Error);
-        else if (log_level == "warn")    world.set(thorin::LogLevel::Warn);
-        else if (log_level == "info")    world.set(thorin::LogLevel::Info);
-        else if (log_level == "verbose") world.set(thorin::LogLevel::Verbose);
-        else if (log_level == "debug")   world.set(thorin::LogLevel::Debug);
-        else throw std::invalid_argument("log level must be one of " LOG_LEVELS);
+        world.set_log_ostream(open(log_stream, log_name));
+        world.set_log_level(log_level);
 
 #if THORIN_ENABLE_CHECKS && !defined(NDEBUG)
         auto set_breakpoints = [&](auto breakpoints, auto setter) {
@@ -211,9 +201,8 @@ int main(int argc, char** argv) {
             if (emit_thorin)
                 world.dump();
             if (emit_llvm) {
-                std::ofstream file(module_name + ".ll");
-                Stream s(file);
-                thorin::ll::emit(world, s);
+                std::ofstream ofs(module_name + ".ll");
+                thorin::ll::emit(world, ofs);
 #if 0
                 thorin::Backends backends(world);
                 auto emit_to_file = [&](thorin::CodeGen* cg, std::string ext) {
