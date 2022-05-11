@@ -616,7 +616,7 @@ void MapExpr::check(TypeSema& sema) const {
             sema.expect_int(arg(1), "require integer as matrix subscript");
         }
         else
-            error(this, "too many simd matrix subscripts");
+            error(this, "too many matrix subscripts");
     } else
         error(this, "incorrect type for map expression");
 }

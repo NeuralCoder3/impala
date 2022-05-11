@@ -59,7 +59,7 @@ public:
         }
     }
 
-    std::pair<Lam*, const Def*> call(const Def* callee, Defs args, const thorin::Def* ret_type, const Def* dbg) {
+    std::pair<Lam*, const Def*> call(const Def* callee, Defs args, const thorin::Def* ret_type, const Def* dbg, bool disable_inline = false) {
         if (ret_type == nullptr) {
             cur_bb->app(false, callee, args, dbg);
             auto next = basicblock(world.dbg("unreachable"));
@@ -72,7 +72,7 @@ public:
         // if the return type is a sigma, flatten it
         auto sigma = ret_type->isa<thorin::Sigma>();
         // TODO: not flatten for rev_diff pb cont
-        if (sigma && !sigma->isa_nom()) {
+        if (!disable_inline && sigma && !sigma->isa_nom()) {
             for (auto op : sigma->ops())
                 cont_args.push_back(op);
         } else
@@ -774,6 +774,8 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                             case SUB: return cg.mop(MOp::sadd, RMode::none,
                                         cg.world.op(ROp::mul, RMode::none, cg.world.lit_real(64, -1), rdef), ldef);
                             case MUL: return cg.mop(MOp::smul, RMode::none, rdef, ldef, dbg);
+                            case DIV: return cg.mop(MOp::smul, RMode::none,
+                                                    cg.world.op(ROp::div, RMode::none, cg.world.lit_real(64, 1), rdef), ldef);
                             default: thorin::unreachable();
                         }
                     }
@@ -941,8 +943,11 @@ const Def* MapExpr::remit(CodeGen& cg) const {
     if (auto cn = ltype->isa<FnType>()) {
         const Def* dst = nullptr;
 
+
         // Handle primops here
         if (auto type_expr = lhs()->isa<TypeAppExpr>()) { // Bitcast, sizeof and select are all polymorphic
+            type_expr->dump();
+
             auto callee = type_expr->lhs()->skip_rvalue();
             if (auto path = callee->isa<PathExpr>()) {
                 if (auto fn_decl = path->value_decl()->isa<FnDecl>()) {
@@ -1019,13 +1024,15 @@ const Def* MapExpr::remit(CodeGen& cg) const {
             defs.push_back(arg.get()->remit(cg));
         defs.front() = cg.cur_mem; // now get the current memory value
 
+        auto return_type = cn->return_type();
+        auto disable_inline = is_m64(return_type);
         auto ret_type = num_args() == cn->num_params() ? nullptr : cg.convert(cn->return_type());
         const Def* ret;
         Stream s2;
         s2.fmt("_cont callee {} : {}\n",dst, dst->type());
         s2.fmt("_cont defs ({, })\n",defs);
         s2.fmt("_cont type {}\n",ret_type);
-        std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()));
+        std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()), disable_inline);
         if (ret_type)
             cg.cur_mem = cg.cur_bb->var(0_s);
 
