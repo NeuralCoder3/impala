@@ -28,7 +28,7 @@ public:
         // these do not appear in impala/tokenlist.h -- they are too special
         MUT, ID, Eof, Error,
         LIT_char, LIT_str,
-        Num,
+        Num
     };
 
     struct TagHash {

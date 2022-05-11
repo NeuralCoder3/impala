@@ -42,7 +42,7 @@ public:
     IMPALA_EXPECT(bool,        is_bool(t),                             "boolean type")
     IMPALA_EXPECT(int,         is_int(t),                              "integer type")
     IMPALA_EXPECT(int_or_bool, is_int(t)                || is_bool(t), "integer or boolean type")
-    IMPALA_EXPECT(num,         is_int(t) || is_float(t),               "number type")
+    IMPALA_EXPECT(num,         is_int(t) || is_float(t) || is_m64(t),  "number type")
     IMPALA_EXPECT(num_or_bool, is_int(t) || is_float(t) || is_bool(t), "number or boolean type")
     IMPALA_EXPECT(ptr,         t->isa<PtrType>(),                      "pointer type")
     IMPALA_EXPECT(num_or_bool_or_ptr, is_int(t) || is_float(t) || is_bool(t) || t->isa<PtrType>(), "number or boolean or pointer type")
@@ -143,6 +143,7 @@ void ASTTypeParamList::check_ast_type_params(TypeSema& sema) const {
 
 void ErrorASTType::check(TypeSema& ) const {}
 void PrimASTType::check(TypeSema&) const {}
+//void TensorASTType::check(TypeSema&) const {}
 void PtrASTType::check(TypeSema& sema) const { sema.check(referenced_ast_type()); }
 void IndefiniteArrayASTType::check(TypeSema& sema) const { sema.check(elem_ast_type()); }
 void   DefiniteArrayASTType::check(TypeSema& sema) const { sema.check(elem_ast_type()); }
@@ -599,6 +600,13 @@ void MapExpr::check(TypeSema& sema) const {
             sema.expect_int(arg(0), "require integer as vector subscript");
         else
             error(this, "too many simd vector subscripts");
+    } else if(is_m64(ltype)) {
+        if (num_args() == 2) {
+            sema.expect_int(arg(0), "require integer as matrix subscript");
+            sema.expect_int(arg(1), "require integer as matrix subscript");
+        }
+        else
+            error(this, "too many simd matrix subscripts");
     } else
         error(this, "incorrect type for map expression");
 }
@@ -747,6 +755,12 @@ void RevDiffExpr::check(TypeSema& sema) const {
 //	    return;
 //    }
 }
+
+void CreateMatrixExpr::check(TypeSema& sema) const {
+
+
+}
+
 
 //------------------------------------------------------------------------------
 

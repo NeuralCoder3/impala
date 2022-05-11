@@ -105,6 +105,7 @@ IMPALA_KEY(TYPEOF,        "typeof")
 IMPALA_KEY(WHILE,         "while")
 IMPALA_KEY(SIMD,          "simd")
 IMPALA_KEY(REV_DIFF,      "rev_diff")
+IMPALA_KEY(MATRIX,        "matrix64")
 
 #undef IMPALA_KEY
 
@@ -161,6 +162,8 @@ IMPALA_TYPE(u64,  pu64)
 IMPALA_TYPE(f16,  pf16)
 IMPALA_TYPE(f32,  pf32)
 IMPALA_TYPE(f64,  pf64)
+IMPALA_TYPE(m64,   m64)
 IMPALA_TYPE(bool, bool)
 
 #undef IMPALA_TYPE
+

@@ -114,10 +114,26 @@ public:
         return res;
     }
 
+    const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* b, const Def* dbg = {}){
+        auto [mem, matrix] = world.op(o, rmode, a, b, cur_mem, dbg)->projs<2>();
+        cur_mem = mem;
+        return matrix;
+    }
+
+    const Def* mop(MOp o, nat_t mode, const Def* a, const Def* b, const Def* dbg = {}) {
+        return mop(o, world.lit_nat(mode), a, b, dbg);
+    }
+
     const Def* load(const Def*  ptr, Loc loc) { return handle_mem_res(world.op_load(cur_mem, ptr, loc2dbg(loc))); }
     const Def* slot(const Def* type, const Def* dbg) { return handle_mem_res(world.op_slot(type, cur_mem, dbg)); }
 
     void store(const Def* ptr, const Def* val, Loc loc) { cur_mem = world.op_store(cur_mem, ptr, val, loc2dbg(loc)); }
+
+    const Def* allocSize(const Def* size, const thorin::Def* elemType, const Def* dbg){
+        auto dim_int = world.op(Conv::u2u, world.type_int_width(64), size);
+        auto arity = world.op_bitcast(world.type_nat(), dim_int);
+        return alloc( world.arr(arity, elemType), dbg);
+    }
 
     const Def* alloc(const thorin::Def* type, const Def* dbg) {
         auto alloc = world.op_alloc(type, cur_mem, dbg);
@@ -131,6 +147,12 @@ public:
     }
 
     const thorin::Def* rev_diff(const thorin::Def *primal) { return world.op_rev_diff(primal); }
+
+    const thorin::Def* create_matrix(const Expr* row_size, const Expr* col_size) {
+        auto [mem, matrix] = world.op_create_matrix(world.type_real(64), row_size->remit(*this), col_size->remit(*this), cur_mem)->projs<2>();
+        cur_mem = mem;
+        return matrix;
+    }
 
     const thorin::Def* convert(const Type* type) {
         if (auto t = thorin_type(type))
@@ -181,6 +203,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
             case PrimType_f16 : return world.type_real(16);
             case PrimType_f32 : return world.type_real(32);
             case PrimType_f64 : return world.type_real(64);
+            case PrimType_m64 : return world.type_matrix(64);
             // clang-format on
             default: thorin::unreachable();
         }
@@ -753,6 +776,13 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                     case XOR: return cg.world.op(Bit::_xor, ldef, rdef, dbg);
                     default: thorin::unreachable();
                 }
+            } else if (is_m64(rhs()->type())) {
+                switch (op) {
+                    case ADD: return cg.mop(MOp::add, RMode::none, ldef, rdef, dbg);
+                    case SUB: return cg.mop(MOp::sub, RMode::none, ldef, rdef, dbg);
+                    case MUL: return cg.mop(MOp::mul, RMode::none, ldef, rdef, dbg);
+                    default: thorin::unreachable();
+                }
             } else {
                 auto mode = type2wmode(lhs()->type());
                 bool s = is_signed(lhs()->type());
@@ -835,8 +865,41 @@ const Def* TypeAppExpr::lemit(CodeGen&) const { thorin::unreachable(); }
 const Def* TypeAppExpr::remit(CodeGen& /*cg*/) const { thorin::unreachable(); }
 
 const Def* MapExpr::lemit(CodeGen& cg) const {
-    auto agg = lhs()->lemit(cg);
-    return cg.world.op_lea_unsafe(agg, arg(0)->remit(cg), cg.loc2dbg(loc()));
+    bool isa_m64 = is_m64(lhs()->type());
+    auto ref_type = lhs()->type()->isa<RefType>();
+    bool is_m64_ref = ref_type && is_m64(ref_type->pointee());
+
+    const Def* index;
+    if(isa_m64 || is_m64_ref){
+        const Def* row_size;
+        //const Def* col_size;
+        const Def* arr_ptr;
+        if(is_m64_ref){
+            auto agg = lhs()->lemit(cg);
+
+            row_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 0), cg.loc2dbg(loc())), loc());
+            //col_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 1), cg.loc2dbg(loc())), loc());
+            arr_ptr = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 2), cg.loc2dbg(loc())), loc());
+        }else{
+            auto tuple = lhs()->remit(cg);
+            auto [a,b,c] = tuple->projs<3>();
+            row_size = a;
+            //col_size = b;
+            arr_ptr = c;
+        }
+
+        auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
+        auto col_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(1)->remit(cg));
+
+        index = cg.world.op(Wrap::add, (nat_t) 0, col_id, cg.world.op(Wrap::mul, (nat_t) 0, row_size, row_id));
+
+        return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
+    }else{
+        auto agg = lhs()->lemit(cg);
+
+        index = arg(0)->remit(cg);
+        return cg.world.op_lea_unsafe(agg, index, cg.loc2dbg(loc()));
+    }
 }
 
 const Def* MapExpr::remit(CodeGen& cg) const {
@@ -1136,6 +1199,11 @@ const Def* FnExpr::remit(CodeGen& cg) const {
 
 const Def* RevDiffExpr::remit(CodeGen& cg) const {
     return cg.rev_diff(expr()->remit(cg));
+}
+
+
+const Def* CreateMatrixExpr::remit(CodeGen& cg) const {
+    return cg.create_matrix(rowSize(), colSize());
 }
 
 /*

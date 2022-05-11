@@ -163,6 +163,10 @@ Stream& PrimType::stream(Stream& os) const {
         default: thorin::unreachable();
     }
 }
+/*
+Stream& TensorType::stream(Stream& os) const {
+    return os;
+}*/
 
 Stream& NoRetType::stream(Stream& os) const { return os << "<no-return>"; }
 Stream& InferError::stream(Stream& os) const { return os.fmt("<infer error: {}, {}>", dst(), src()); }
@@ -215,6 +219,7 @@ Stream& TupleType::stream(Stream& os) const { return os.fmt("({, })", ops()); }
  */
 
 const Type* PrimType           ::vrebuild(TypeTable& to, Types    ) const { return to.prim_type(primtype_tag()); }
+//const Type* TensorType         ::vrebuild(TypeTable& to, Types ops) const { return this; }
 const Type* FnType             ::vrebuild(TypeTable& to, Types ops) const { return to.fn_type(ops); }
 const Type* App                ::vrebuild(TypeTable& to, Types ops) const { return to.app(ops[0], ops[1]); }
 const Type* Lambda             ::vrebuild(TypeTable& to, Types ops) const { return to.lambda(ops[0], name()); }
@@ -299,6 +304,13 @@ const StructType* TypeTable::struct_type(const StructDecl* decl, size_t size) {
     assert_unused(p.second && "hash/equal broken");
     return type;
 }
+/*
+const TensorType* TypeTable::tensor_type(const TensorASTType* tensorType) {
+    auto type = new TensorType(*this, tensorType);
+    const auto& p = types_.insert(type);
+    assert_unused(p.second && "hash/equal broken");
+    return type;
+}*/
 
 const EnumType* TypeTable::enum_type(const EnumDecl* decl, size_t size) {
     auto type = new EnumType(*this, decl, size);

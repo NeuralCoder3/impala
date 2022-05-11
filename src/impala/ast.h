@@ -2,6 +2,7 @@
 #define IMPALA_AST_H
 
 #include <deque>
+#include <utility>
 #include <vector>
 
 #include "thorin/util/array.h"
@@ -251,7 +252,7 @@ private:
 class ASTType : public Typeable {
 public:
     ASTType(Loc loc)
-        : Typeable(loc)
+            : Typeable(loc)
     {}
 
     virtual void bind(NameSema&) const = 0;
@@ -301,6 +302,30 @@ private:
 
     Tag tag_;
 };
+/*
+class TensorASTType : public ASTType {
+public:
+    TensorASTType(Loc loc, Exprs& exprs)
+            : ASTType(loc), args_(std::move(exprs))
+    {}
+
+    virtual void bind(NameSema&) const override;
+    Stream& stream(Stream&) const override;
+
+private:
+    virtual const Type* infer(InferSema&) const override;
+    virtual void check(TypeSema&) const override;
+
+    size_t size(){
+        return args_.size();
+    }
+
+    friend class InferSema;
+    friend class TypeSema;
+    friend class CreateTensor64Expr;
+
+    Exprs args_;
+};*/
 
 class PtrASTType : public ASTType {
 public:
@@ -1555,11 +1580,11 @@ public:
 
     void bind(NameSema&) const override;
     Stream& stream(Stream&) const override;
+    const thorin::Def* remit(CodeGen&) const override;
 
 private:
     const Type* infer(InferSema&) const override;
     void check(TypeSema&) const override;
-    const thorin::Def* remit(CodeGen&) const override;
 
     std::unique_ptr<const Expr> dim_;
     std::unique_ptr<const ASTType> elem_ast_type_;
@@ -1875,6 +1900,35 @@ private:
 
     std::unique_ptr<const Expr> expr_;
 };
+
+class CreateMatrixExpr : public Expr{
+public:
+    CreateMatrixExpr(Loc loc, const Expr* row_size, const Expr* col_size, const PrimASTType* tensorType) :
+        Expr(loc) , row_size_(row_size), col_size_(col_size), tensorType(tensorType) {}
+
+    const Expr* rowSize() const{
+        return row_size_;
+    }
+
+    const Expr* colSize() const{
+        return col_size_;
+    }
+
+    bool has_side_effect() const override;
+    void bind(NameSema &) const override;
+    Stream& stream(Stream&) const override;
+private:
+    const Type *infer(InferSema &) const override;
+    void check(TypeSema &) const override;
+    const thorin::Def *remit(CodeGen &) const override;
+
+
+    const Expr* row_size_;
+    const Expr* col_size_;
+    const PrimASTType* tensorType;
+};
+
+
 
 //------------------------------------------------------------------------------
 

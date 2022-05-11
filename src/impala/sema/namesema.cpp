@@ -145,6 +145,7 @@ void ASTTypeParamList::bind_ast_type_params(NameSema& sema) const {
 
 void ErrorASTType::bind(NameSema&) const {}
 void PrimASTType::bind(NameSema&) const {}
+//void TensorASTType::bind(NameSema&) const {}
 void PtrASTType::bind(NameSema& sema) const { referenced_ast_type()->bind(sema); }
 void IndefiniteArrayASTType::bind(NameSema& sema) const { elem_ast_type()->bind(sema); }
 void DefiniteArrayASTType::bind(NameSema& sema) const { elem_ast_type()->bind(sema); }
@@ -410,6 +411,12 @@ void ForExpr::bind(NameSema& sema) const {
 }
 
 void RevDiffExpr::bind(NameSema &sema) const { expr()->bind(sema); }
+
+void CreateMatrixExpr::bind(NameSema &sema) const {
+    rowSize()->bind(sema);
+    colSize()->bind(sema);
+}
+
 
 //------------------------------------------------------------------------------
 

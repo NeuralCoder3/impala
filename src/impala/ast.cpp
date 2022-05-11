@@ -120,6 +120,14 @@ bool ForExpr::has_side_effect() const { return true; }
 
 bool RevDiffExpr::has_side_effect() const { return expr()->has_side_effect(); }
 
+
+bool CreateMatrixExpr::has_side_effect() const {
+    return rowSize()->has_side_effect() || colSize()->has_side_effect();
+}
+
+
+
+
 //------------------------------------------------------------------------------
 
 /*

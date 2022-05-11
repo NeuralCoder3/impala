@@ -29,6 +29,7 @@ enum Tag {
     Tag_ref,
     Tag_simd,
     Tag_struct,
+    Tag_tensor,
     Tag_enum,
     Tag_tuple,
     Tag_typedef_abs,
@@ -47,6 +48,7 @@ class TypeTable;
 using Type = thorin::TypeBase<TypeTable>;
 
 class StructDecl;
+//class TensorASTType;
 class EnumDecl;
 template<class T> using ArrayRef = thorin::ArrayRef<T>;
 template<class T> using Array    = thorin::Array<T>;
@@ -78,6 +80,24 @@ private:
 
     friend class TypeTable;
 };
+
+/// Primitive type.
+/*class TensorType : public Type {
+private:
+    TensorType(TypeTable& typetable, const TensorASTType* tensorType)
+            : Type(typetable, Tag_tensor, thorin::Array<const Type*>(10)), tensorType_(tensorType)
+    {}
+
+public:
+    Stream& stream(Stream&) const override;
+
+private:
+    const Type* vrebuild(TypeTable&, Types) const override;
+
+    friend class TypeTable;
+
+    const TensorASTType* tensorType_;
+};*/
 
 bool is(const Type*, PrimTypeTag tag);
 #define IMPALA_TYPE(itype, atype) inline bool is_##itype(const Type* t) { return is(t, PrimType_##itype); }
@@ -528,6 +548,7 @@ public:
     const TupleType* unit() { return unit_; }
 
     const StructType* struct_type(const StructDecl* decl, size_t size);
+    //const TensorType* tensor_type(const TensorASTType* tensorType);
     const EnumType* enum_type(const EnumDecl* decl, size_t size);
 
 #define IMPALA_TYPE(itype, atype) const PrimType* type_##itype() { return itype##_; }

@@ -410,7 +410,11 @@ const Type* PrimASTType::infer(InferSema& sema) const {
         default: thorin::unreachable();
     }
 }
+/*
+const Type* TensorASTType::infer(InferSema& sema) const {
 
+}
+*/
 const Type* PtrASTType::infer(InferSema& sema) const {
     auto pointee = sema.infer(referenced_ast_type());
     switch (tag()) {
@@ -931,6 +935,9 @@ const Type* MapExpr::infer(InferSema& sema) const {
     if (ltype->isa<FnType>())
         return sema.infer_call(lhs(), args(), sema.find_type(this));
 
+    if (is(ltype, PrimType_m64))
+        return sema.ref_type(sema.prim_type(PrimType_f64), true, 0);
+
     return sema.type_error();
 }
 
@@ -1014,6 +1021,12 @@ const Type* RevDiffExpr::infer(InferSema& sema) const {
         return fn_type->rev_diffed_type();
     }
     return sema.type_error();
+}
+
+const Type* CreateMatrixExpr::infer(InferSema& sema) const {
+    sema.rvalue(rowSize());
+    sema.rvalue(colSize());
+    return sema.prim_type(PrimTypeTag::PrimType_m64);
 }
 
 //------------------------------------------------------------------------------
