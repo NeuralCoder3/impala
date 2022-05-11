@@ -752,7 +752,33 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
             auto ldef = lhs()->remit(cg);
             auto rdef = rhs()->remit(cg);
 
-            if (is_float(rhs()->type())) {
+            if (is_m64(lhs()->type()) || is_m64(rhs()->type())) {
+                if (is_m64(lhs()->type()) && is_m64(rhs()->type())){
+                    switch (op) {
+                        case ADD: return cg.mop(MOp::add, RMode::none, ldef, rdef, dbg);
+                        case SUB: return cg.mop(MOp::sub, RMode::none, ldef, rdef, dbg);
+                        case MUL: return cg.mop(MOp::mul, RMode::none, ldef, rdef, dbg);
+                        default: thorin::unreachable();
+                    }
+                }else{
+                    if (is_m64(rhs()->type())){
+                        switch (op) {
+                            case ADD: return cg.mop(MOp::sadd, RMode::none, ldef, rdef, dbg);
+                            case SUB: return cg.mop(MOp::ssub, RMode::none, ldef, rdef, dbg);
+                            case MUL: return cg.mop(MOp::smul, RMode::none, ldef, rdef, dbg);
+                            default: thorin::unreachable();
+                        }
+                    }else{
+                        switch (op) {
+                            case ADD: return cg.mop(MOp::sadd, RMode::none, rdef, ldef, dbg);
+                            case SUB: return cg.mop(MOp::sadd, RMode::none,
+                                        cg.world.op(ROp::mul, RMode::none, cg.world.lit_real(64, -1), rdef), ldef);
+                            case MUL: return cg.mop(MOp::smul, RMode::none, rdef, ldef, dbg);
+                            default: thorin::unreachable();
+                        }
+                    }
+                }
+            }else if (is_float(rhs()->type())) {
                 switch (op) {
                     case  EQ: return cg.world.op(RCmp::  e, RMode::none, ldef, rdef, dbg);
                     case  NE: return cg.world.op(RCmp::une, RMode::none, ldef, rdef, dbg);
@@ -775,13 +801,6 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                     case AND: return cg.world.op(Bit::_and, ldef, rdef, dbg);
                     case  OR: return cg.world.op(Bit:: _or, ldef, rdef, dbg);
                     case XOR: return cg.world.op(Bit::_xor, ldef, rdef, dbg);
-                    default: thorin::unreachable();
-                }
-            } else if (is_m64(rhs()->type())) {
-                switch (op) {
-                    case ADD: return cg.mop(MOp::add, RMode::none, ldef, rdef, dbg);
-                    case SUB: return cg.mop(MOp::sub, RMode::none, ldef, rdef, dbg);
-                    case MUL: return cg.mop(MOp::mul, RMode::none, ldef, rdef, dbg);
                     default: thorin::unreachable();
                 }
             } else {

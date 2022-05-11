@@ -728,9 +728,13 @@ const Type* InfixExpr::infer(InferSema& sema) const {
         case AND: case OR:  case XOR: {
             auto ltype = sema.rvalue(lhs());
             auto rtype = sema.rvalue(rhs());
-            sema.constrain(lhs(), rtype);
-            sema.constrain(rhs(), ltype);
-            return rtype;
+            if(!is_m64(ltype) && !is_m64(rtype)){
+                sema.constrain(lhs(), rtype);
+                sema.constrain(rhs(), ltype);
+                return rtype;
+            }else{
+                return is_m64(ltype) ? ltype : rtype;
+            }
         }
         case ASGN:
         case ADD_ASGN: case SUB_ASGN:

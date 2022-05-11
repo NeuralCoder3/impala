@@ -376,10 +376,18 @@ void InfixExpr::check(TypeSema& sema) const {
     sema.check(rhs());
 
     auto match_type = [&](const Type* ltype, const Type* rtype) {
-        if (ltype != rtype && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
-            error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
-            error(lhs(),  "left-hand side type is '{}'", ltype);
-            error(rhs(), "right-hand side type is '{}'", rtype);
+        if(is_m64(ltype) || is_m64(rtype)) {
+            if (!(is_m64(ltype) || is_f64(ltype)) && !(is_m64(rtype) || is_f64(rtype)) && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
+                error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
+                error(lhs(),  "left-hand side type is '{}'", ltype);
+                error(rhs(), "right-hand side type is '{}'", rtype);
+            }
+        }else {
+            if (ltype != rtype && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
+                error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
+                error(lhs(),  "left-hand side type is '{}'", ltype);
+                error(rhs(), "right-hand side type is '{}'", rtype);
+            }
         }
     };
 
