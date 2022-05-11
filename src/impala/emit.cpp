@@ -120,6 +120,12 @@ public:
         return matrix;
     }
 
+    const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* dbg = {}){
+        auto [mem, matrix] = world.op(o, rmode, a, cur_mem, dbg)->projs<2>();
+        cur_mem = mem;
+        return matrix;
+    }
+
     const Def* mop(MOp o, nat_t mode, const Def* a, const Def* b, const Def* dbg = {}) {
         return mop(o, world.lit_nat(mode), a, b, dbg);
     }
@@ -148,8 +154,8 @@ public:
 
     const thorin::Def* rev_diff(const thorin::Def *primal) { return world.op_rev_diff(primal); }
 
-    const thorin::Def* create_matrix(const Expr* row_size, const Expr* col_size) {
-        auto [mem, matrix] = world.op_create_matrix(world.type_real(64), row_size->remit(*this), col_size->remit(*this), cur_mem)->projs<2>();
+    const thorin::Def* create_matrix(const Def* elem_type, const Expr* row_size, const Expr* col_size) {
+        auto [mem, matrix] = world.op_create_matrix(elem_type, row_size->remit(*this), col_size->remit(*this), cur_mem)->projs<2>();
         cur_mem = mem;
         return matrix;
     }
@@ -894,19 +900,16 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
 
     const Def* index;
     if((isa_mat || is_mat_ref) && args().size() == 2){
-        //const Def* row_size;
         const Def* col_size;
         const Def* arr_ptr;
         if(is_mat_ref){
             auto agg = lhs()->lemit(cg);
 
-            //row_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 0), cg.loc2dbg(loc())), loc());
             col_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 1), cg.loc2dbg(loc())), loc());
             arr_ptr = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 2), cg.loc2dbg(loc())), loc());
         }else{
             auto tuple = lhs()->remit(cg);
             auto [a,b,c] = tuple->projs<3>();
-            //row_size = a;
             col_size = b;
             arr_ptr = c;
         }
@@ -917,9 +920,6 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
         index = cg.world.row_col_to_index(row_id, col_id, col_size);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
     }else if((isa_mat || is_mat_ref) && args().size() == 1){
-        const Def* row_size;
-        //const Def* col_size;
-        const Def* arr_ptr;
         index = arg(0)->remit(cg);
 
         if(is_mat_ref){
@@ -940,15 +940,11 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
 const Def* MapExpr::remit(CodeGen& cg) const {
     auto ltype = unpack_ref_type(lhs()->type());
 
-    dump();
     if (auto cn = ltype->isa<FnType>()) {
         const Def* dst = nullptr;
 
-
         // Handle primops here
         if (auto type_expr = lhs()->isa<TypeAppExpr>()) { // Bitcast, sizeof and select are all polymorphic
-            type_expr->dump();
-
             auto callee = type_expr->lhs()->skip_rvalue();
             if (auto path = callee->isa<PathExpr>()) {
                 if (auto fn_decl = path->value_decl()->isa<FnDecl>()) {
@@ -1244,7 +1240,8 @@ const Def* RevDiffExpr::remit(CodeGen& cg) const {
 
 
 const Def* CreateMatrixExpr::remit(CodeGen& cg) const {
-    return cg.create_matrix(rowSize(), colSize());
+    auto elem_ty = cg.convert(elem_type()->type());
+    return cg.create_matrix(elem_ty, rowSize(), colSize());
 }
 
 /*
