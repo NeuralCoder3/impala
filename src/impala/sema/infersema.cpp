@@ -410,11 +410,11 @@ const Type* PrimASTType::infer(InferSema& sema) const {
         default: thorin::unreachable();
     }
 }
-/*
-const Type* TensorASTType::infer(InferSema& sema) const {
 
+const Type* MatrixASTType::infer(InferSema& sema) const {
+    return sema.matrix_type(sema.infer(elem_type()));
 }
-*/
+
 const Type* PtrASTType::infer(InferSema& sema) const {
     auto pointee = sema.infer(referenced_ast_type());
     switch (tag()) {
@@ -728,12 +728,12 @@ const Type* InfixExpr::infer(InferSema& sema) const {
         case AND: case OR:  case XOR: {
             auto ltype = sema.rvalue(lhs());
             auto rtype = sema.rvalue(rhs());
-            if(!is_m64(ltype) && !is_m64(rtype)){
+            if(!is_mat(ltype) && !is_mat(rtype)){
                 sema.constrain(lhs(), rtype);
                 sema.constrain(rhs(), ltype);
                 return rtype;
             }else{
-                return is_m64(ltype) ? ltype : rtype;
+                return is_mat(ltype) ? ltype : rtype;
             }
         }
         case ASGN:
@@ -939,7 +939,7 @@ const Type* MapExpr::infer(InferSema& sema) const {
     if (ltype->isa<FnType>())
         return sema.infer_call(lhs(), args(), sema.find_type(this));
 
-    if (is(ltype, PrimType_m64)){
+    if (ltype->isa<MatrixType>()){
         auto arg_size = args().size();
         if(arg_size == 1){
             auto indexType = sema.prim_type(PrimType_u64);
@@ -1041,7 +1041,7 @@ const Type* RevDiffExpr::infer(InferSema& sema) const {
 const Type* CreateMatrixExpr::infer(InferSema& sema) const {
     sema.rvalue(rowSize());
     sema.rvalue(colSize());
-    return sema.prim_type(PrimTypeTag::PrimType_m64);
+    return sema.matrix_type(sema.infer(elem_type()));
 }
 
 //------------------------------------------------------------------------------

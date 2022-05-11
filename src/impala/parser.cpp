@@ -98,8 +98,7 @@
     case Token::TILDE: \
     case Token::AND: \
     case Token::ANDAND: \
-    case Token::SIMD: \
-    case Token::MATRIX
+    case Token::SIMD
 
 using namespace thorin;
 
@@ -206,7 +205,7 @@ public:
     const ASTType*      parse_return_type(bool& is_continuation, bool mandatory);
     const FnASTType*    parse_fn_type();
     const PrimASTType*  parse_prim_type();
-    //const TensorASTType* parse_tensor_type();
+    const MatrixASTType* parse_matrix_type();
     const PtrASTType*   parse_ptr_type();
     const TupleASTType* parse_tuple_type();
     const ASTTypeApp*   parse_ast_type_app();
@@ -700,7 +699,7 @@ const ASTType* Parser::parse_type() {
         case Token::TYPE_##itype:
 #include "impala/tokenlist.h"
                                 return parse_prim_type();
-
+        case Token::MAT:        return parse_matrix_type();
         case Token::FN:         return parse_fn_type();
         case Token::L_PAREN:    return parse_tuple_type();
         case Token::ID:         return parse_ast_type_app();
@@ -775,14 +774,15 @@ const PrimASTType* Parser::parse_prim_type() {
     auto tag = (PrimASTType::Tag) lex().tag();
     return new PrimASTType(tracker, tag);
 }
-/*
-const TensorASTType* Parser::parse_tensor_type() {
+
+const MatrixASTType* Parser::parse_matrix_type() {
     auto tracker = track();
-    expect(Token::L_PAREN, "dimentions");
-    Exprs args;
-    parse_comma_list("arguments of create tensor expression", Token::R_PAREN, [&] { args.emplace_back(parse_expr()); });
-    return new TensorASTType(tracker, args);
-}*/
+    eat(Token::MAT);
+    expect(Token::L_BRACKET, "parse_matrix_type");
+    auto type = parse_type();
+    expect(Token::R_BRACKET, "parse_matrix_type");
+    return new MatrixASTType(tracker, type);
+}
 
 const PtrASTType* Parser::parse_ptr_type() {
     auto tracker = track();
@@ -1017,7 +1017,7 @@ const Expr* Parser::parse_primary_expr() {
         case Token::WHILE:         return parse_while_expr();
         case Token::L_BRACE:       return parse_block_expr();
         case Token::REV_DIFF:      return parse_rev_diff_expr();
-        case Token::MATRIX:        return parse_tensor_alloc();
+        case Token::MAT:           return parse_tensor_alloc();
         default:                   error("expression", ""); return new EmptyExpr(lex().loc());
         // clang-format on
     }
@@ -1291,13 +1291,16 @@ const RevDiffExpr *Parser::parse_rev_diff_expr() {
 
 const CreateMatrixExpr *Parser::parse_tensor_alloc() {
     auto tracker = track();
-    eat(Token::MATRIX);
+    eat(Token::MAT);
+    expect(Token::L_BRACKET, "matrix expression");
+    auto type = parse_type();
+    expect(Token::R_BRACKET, "matrix expression");
     expect(Token::L_PAREN, "matrix expression");
     auto row_size = parse_expr();
     expect(Token::COMMA, "matrix expression");
     auto col_size = parse_expr();
     expect(Token::R_PAREN, "matrix expression");
-    return new CreateMatrixExpr(tracker, row_size, col_size, new PrimASTType(tracker, (PrimASTType::Tag) Token::TYPE_m64));
+    return new CreateMatrixExpr(tracker, row_size, col_size, type);
 }
 
 /*

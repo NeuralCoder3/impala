@@ -29,7 +29,7 @@ enum Tag {
     Tag_ref,
     Tag_simd,
     Tag_struct,
-    Tag_tensor,
+    Tag_matrix,
     Tag_enum,
     Tag_tuple,
     Tag_typedef_abs,
@@ -47,8 +47,9 @@ enum PrimTypeTag {
 class TypeTable;
 using Type = thorin::TypeBase<TypeTable>;
 
+class MatrixType;
 class StructDecl;
-//class TensorASTType;
+class MatrixASTType;
 class EnumDecl;
 template<class T> using ArrayRef = thorin::ArrayRef<T>;
 template<class T> using Array    = thorin::Array<T>;
@@ -109,6 +110,7 @@ inline bool is_signed(const Type* t) { return is_i8(t) || is_i16(t) || is_i32(t)
 bool is_void(const Type*);
 bool is_subtype(const Type* dst, const Type* src);
 bool is_strict_subtype(const Type* dst, const Type* src);
+inline bool is_mat(const Type* t) { return t->isa<MatrixType>(); }
 
 //------------------------------------------------------------------------------
 
@@ -524,6 +526,25 @@ private:
     friend class TypeTable;
 };
 
+class MatrixType : public Type {
+public:
+    MatrixType(TypeTable& typetable, const Type* elem_type)
+            : Type(typetable, Tag_matrix, {elem_type})
+    {}
+
+    bool equal(const Type* other) const override {
+        return Type::equal(other);
+    }
+    const Type* elem_type() const { return op(0); }
+
+    Stream& stream(Stream&) const override;
+
+private:
+    const Type* vrebuild(TypeTable&, Types) const override;
+
+    friend class TypeTable;
+};
+
 inline bool is_no_ret_or_type_error(const Type* t) {
     return t->isa<NoRetType>() || t->isa<TypeError>();
 }
@@ -572,6 +593,9 @@ public:
     }
     const RefType* ref_type(const Type* pointee, bool mut, uint64_t addr_space) {
         return unify(new RefType(*this, pointee, mut, addr_space));
+    }
+    const MatrixType* matrix_type(const Type* elem_type){
+        return unify(new MatrixType(*this, elem_type));
     }
     const NoRetType* type_noret() { return type_noret_; }
     const PrimType* prim_type(PrimTypeTag tag);

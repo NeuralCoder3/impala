@@ -163,11 +163,8 @@ Stream& PrimType::stream(Stream& os) const {
         default: thorin::unreachable();
     }
 }
-/*
-Stream& TensorType::stream(Stream& os) const {
-    return os;
-}*/
 
+Stream& MatrixType::stream(Stream& os) const { return os.fmt("mat[{}]", elem_type()); }
 Stream& NoRetType::stream(Stream& os) const { return os << "<no-return>"; }
 Stream& InferError::stream(Stream& os) const { return os.fmt("<infer error: {}, {}>", dst(), src()); }
 Stream& TypeError::stream(Stream& os) const { return os << "<type error>"; }
@@ -219,7 +216,7 @@ Stream& TupleType::stream(Stream& os) const { return os.fmt("({, })", ops()); }
  */
 
 const Type* PrimType           ::vrebuild(TypeTable& to, Types    ) const { return to.prim_type(primtype_tag()); }
-//const Type* TensorType         ::vrebuild(TypeTable& to, Types ops) const { return this; }
+const Type* MatrixType         ::vrebuild(TypeTable& to, Types ops) const { return to.matrix_type(ops[0]); }
 const Type* FnType             ::vrebuild(TypeTable& to, Types ops) const { return to.fn_type(ops); }
 const Type* App                ::vrebuild(TypeTable& to, Types ops) const { return to.app(ops[0], ops[1]); }
 const Type* Lambda             ::vrebuild(TypeTable& to, Types ops) const { return to.lambda(ops[0], name()); }

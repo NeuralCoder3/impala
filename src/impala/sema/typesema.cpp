@@ -42,7 +42,7 @@ public:
     IMPALA_EXPECT(bool,        is_bool(t),                             "boolean type")
     IMPALA_EXPECT(int,         is_int(t),                              "integer type")
     IMPALA_EXPECT(int_or_bool, is_int(t)                || is_bool(t), "integer or boolean type")
-    IMPALA_EXPECT(num,         is_int(t) || is_float(t) || is_m64(t),  "number type")
+    IMPALA_EXPECT(num,         is_int(t) || is_float(t) || is_mat(t),  "number type")
     IMPALA_EXPECT(num_or_bool, is_int(t) || is_float(t) || is_bool(t), "number or boolean type")
     IMPALA_EXPECT(ptr,         t->isa<PtrType>(),                      "pointer type")
     IMPALA_EXPECT(num_or_bool_or_ptr, is_int(t) || is_float(t) || is_bool(t) || t->isa<PtrType>(), "number or boolean or pointer type")
@@ -143,10 +143,10 @@ void ASTTypeParamList::check_ast_type_params(TypeSema& sema) const {
 
 void ErrorASTType::check(TypeSema& ) const {}
 void PrimASTType::check(TypeSema&) const {}
-//void TensorASTType::check(TypeSema&) const {}
+void MatrixASTType::check(TypeSema& ) const {}
 void PtrASTType::check(TypeSema& sema) const { sema.check(referenced_ast_type()); }
 void IndefiniteArrayASTType::check(TypeSema& sema) const { sema.check(elem_ast_type()); }
-void   DefiniteArrayASTType::check(TypeSema& sema) const { sema.check(elem_ast_type()); }
+void DefiniteArrayASTType::check(TypeSema& sema) const { sema.check(elem_ast_type()); }
 
 void TupleASTType::check(TypeSema& sema) const {
     for (auto&& ast_type_arg : ast_type_args()) {
@@ -376,8 +376,8 @@ void InfixExpr::check(TypeSema& sema) const {
     sema.check(rhs());
 
     auto match_type = [&](const Type* ltype, const Type* rtype) {
-        if(is_m64(ltype) || is_m64(rtype)) {
-            if (!(is_m64(ltype) || is_f64(ltype)) && !(is_m64(rtype) || is_f64(rtype)) && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
+        if(is_mat(ltype) || is_mat(rtype)) {
+            if (!(is_mat(ltype) || is_f64(ltype)) && !(is_mat(rtype) || is_f64(rtype)) && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
                 error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
                 error(lhs(),  "left-hand side type is '{}'", ltype);
                 error(rhs(), "right-hand side type is '{}'", rtype);
@@ -608,7 +608,7 @@ void MapExpr::check(TypeSema& sema) const {
             sema.expect_int(arg(0), "require integer as vector subscript");
         else
             error(this, "too many simd vector subscripts");
-    } else if(is_m64(ltype)) {
+    } else if(is_mat(ltype)) {
         if (num_args() == 1) {
             sema.expect_int(arg(0), "require integer as matrix subscript");
         }else if (num_args() == 2) {

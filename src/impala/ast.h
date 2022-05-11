@@ -302,30 +302,28 @@ private:
 
     Tag tag_;
 };
-/*
-class TensorASTType : public ASTType {
+
+class MatrixASTType : public ASTType {
 public:
-    TensorASTType(Loc loc, Exprs& exprs)
-            : ASTType(loc), args_(std::move(exprs))
+    MatrixASTType(Loc loc, const ASTType* elem_type) : ASTType(loc), elem_type_(elem_type)
     {}
 
     virtual void bind(NameSema&) const override;
     Stream& stream(Stream&) const override;
 
+    const ASTType* elem_type() const{
+        return elem_type_;
+    }
+
 private:
     virtual const Type* infer(InferSema&) const override;
     virtual void check(TypeSema&) const override;
 
-    size_t size(){
-        return args_.size();
-    }
-
     friend class InferSema;
     friend class TypeSema;
-    friend class CreateTensor64Expr;
 
-    Exprs args_;
-};*/
+    const ASTType* elem_type_;
+};
 
 class PtrASTType : public ASTType {
 public:
@@ -1903,8 +1901,8 @@ private:
 
 class CreateMatrixExpr : public Expr{
 public:
-    CreateMatrixExpr(Loc loc, const Expr* row_size, const Expr* col_size, const PrimASTType* tensorType) :
-        Expr(loc) , row_size_(row_size), col_size_(col_size), tensorType(tensorType) {}
+    CreateMatrixExpr(Loc loc, const Expr* row_size, const Expr* col_size, const ASTType* matrix_type) :
+        Expr(loc) , row_size_(row_size), col_size_(col_size), elem_type_(matrix_type) {}
 
     const Expr* rowSize() const{
         return row_size_;
@@ -1912,6 +1910,10 @@ public:
 
     const Expr* colSize() const{
         return col_size_;
+    }
+
+    const ASTType* elem_type() const{
+        return elem_type_;
     }
 
     bool has_side_effect() const override;
@@ -1922,10 +1924,9 @@ private:
     void check(TypeSema &) const override;
     const thorin::Def *remit(CodeGen &) const override;
 
-
     const Expr* row_size_;
     const Expr* col_size_;
-    const PrimASTType* tensorType;
+    const ASTType* elem_type_;
 };
 
 

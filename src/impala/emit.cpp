@@ -203,7 +203,6 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
             case PrimType_f16 : return world.type_real(16);
             case PrimType_f32 : return world.type_real(32);
             case PrimType_f64 : return world.type_real(64);
-            case PrimType_m64 : return world.type_matrix(64);
             // clang-format on
             default: thorin::unreachable();
         }
@@ -275,6 +274,8 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
         return arr;
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
+    } else if(auto matrix_type = type->isa<MatrixType>()){
+        return world.type_matrix(convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -752,8 +753,8 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
             auto ldef = lhs()->remit(cg);
             auto rdef = rhs()->remit(cg);
 
-            if (is_m64(lhs()->type()) || is_m64(rhs()->type())) {
-                if (is_m64(lhs()->type()) && is_m64(rhs()->type())){
+            if (is_mat(lhs()->type()) || is_mat(rhs()->type())) {
+                if (is_mat(lhs()->type()) && is_mat(rhs()->type())){
                     switch (op) {
                         case ADD: return cg.mop(MOp::add, RMode::none, ldef, rdef, dbg);
                         case SUB: return cg.mop(MOp::sub, RMode::none, ldef, rdef, dbg);
@@ -761,7 +762,7 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                         default: thorin::unreachable();
                     }
                 }else{
-                    if (is_m64(rhs()->type())){
+                    if (is_mat(rhs()->type())){
                         switch (op) {
                             case ADD: return cg.mop(MOp::sadd, RMode::none, ldef, rdef, dbg);
                             case SUB: return cg.mop(MOp::ssub, RMode::none, ldef, rdef, dbg);
@@ -887,16 +888,16 @@ const Def* TypeAppExpr::lemit(CodeGen&) const { thorin::unreachable(); }
 const Def* TypeAppExpr::remit(CodeGen& /*cg*/) const { thorin::unreachable(); }
 
 const Def* MapExpr::lemit(CodeGen& cg) const {
-    bool isa_m64 = is_m64(lhs()->type());
+    bool isa_mat = is_mat(lhs()->type());
     auto ref_type = lhs()->type()->isa<RefType>();
-    bool is_m64_ref = ref_type && is_m64(ref_type->pointee());
+    bool is_mat_ref = ref_type && is_mat(ref_type->pointee());
 
     const Def* index;
-    if((isa_m64 || is_m64_ref) && args().size() == 2){
+    if((isa_mat || is_mat_ref) && args().size() == 2){
         //const Def* row_size;
         const Def* col_size;
         const Def* arr_ptr;
-        if(is_m64_ref){
+        if(is_mat_ref){
             auto agg = lhs()->lemit(cg);
 
             //row_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 0), cg.loc2dbg(loc())), loc());
@@ -915,13 +916,13 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
 
         index = cg.world.row_col_to_index(row_id, col_id, col_size);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
-    }else if((isa_m64 || is_m64_ref) && args().size() == 1){
+    }else if((isa_mat || is_mat_ref) && args().size() == 1){
         const Def* row_size;
         //const Def* col_size;
         const Def* arr_ptr;
         index = arg(0)->remit(cg);
 
-        if(is_m64_ref){
+        if(is_mat_ref){
             auto agg = lhs()->lemit(cg);
             return cg.load(cg.world.op_lea_unsafe(agg, index, cg.loc2dbg(loc())), loc());
         }else{
@@ -1025,7 +1026,7 @@ const Def* MapExpr::remit(CodeGen& cg) const {
         defs.front() = cg.cur_mem; // now get the current memory value
 
         auto return_type = cn->return_type();
-        auto disable_inline = is_m64(return_type);
+        auto disable_inline = is_mat(return_type);
         auto ret_type = num_args() == cn->num_params() ? nullptr : cg.convert(cn->return_type());
         const Def* ret;
         Stream s2;
@@ -1039,7 +1040,7 @@ const Def* MapExpr::remit(CodeGen& cg) const {
         s2.fmt("_cont ret {}\n",ret);
 
         return ret;
-    } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>() || is_m64(ltype)) {
+    } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>() || is_mat(ltype)) {
         auto index = arg(0)->remit(cg);
         return cg.world.extract_unsafe(lhs()->remit(cg), index, cg.loc2dbg(loc()));
     }

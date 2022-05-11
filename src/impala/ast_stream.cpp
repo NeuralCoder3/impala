@@ -54,11 +54,9 @@ Stream& PrimASTType::stream(Stream& s) const {
     // clang-format on
 }
 
-
-/*
-Stream& TensorASTType::stream(Stream& s) const {
-    return s.fmt("t64({,})", args_);
-}*/
+Stream& MatrixASTType::stream(Stream& s) const {
+    return s.fmt("mat[{}]");
+}
 
 Stream& Typeof::stream(Stream& s) const {
     return s.fmt("typeof({})", expr());
