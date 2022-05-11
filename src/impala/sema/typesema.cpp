@@ -601,7 +601,9 @@ void MapExpr::check(TypeSema& sema) const {
         else
             error(this, "too many simd vector subscripts");
     } else if(is_m64(ltype)) {
-        if (num_args() == 2) {
+        if (num_args() == 1) {
+            sema.expect_int(arg(0), "require integer as matrix subscript");
+        }else if (num_args() == 2) {
             sema.expect_int(arg(0), "require integer as matrix subscript");
             sema.expect_int(arg(1), "require integer as matrix subscript");
         }

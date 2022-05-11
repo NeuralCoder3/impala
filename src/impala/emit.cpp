@@ -552,6 +552,7 @@ const Def* RValueExpr::lemit(CodeGen& cg) const {
 const Def* RValueExpr::remit(CodeGen& cg) const {
     if (src()->type()->isa<RefType>())
         return cg.load(lemit(cg), loc());
+    dump();
     return src()->remit(cg);
 }
 
@@ -870,30 +871,42 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
     bool is_m64_ref = ref_type && is_m64(ref_type->pointee());
 
     const Def* index;
-    if(isa_m64 || is_m64_ref){
-        const Def* row_size;
-        //const Def* col_size;
+    if((isa_m64 || is_m64_ref) && args().size() == 2){
+        //const Def* row_size;
+        const Def* col_size;
         const Def* arr_ptr;
         if(is_m64_ref){
             auto agg = lhs()->lemit(cg);
 
-            row_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 0), cg.loc2dbg(loc())), loc());
-            //col_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 1), cg.loc2dbg(loc())), loc());
+            //row_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 0), cg.loc2dbg(loc())), loc());
+            col_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 1), cg.loc2dbg(loc())), loc());
             arr_ptr = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 2), cg.loc2dbg(loc())), loc());
         }else{
             auto tuple = lhs()->remit(cg);
             auto [a,b,c] = tuple->projs<3>();
-            row_size = a;
-            //col_size = b;
+            //row_size = a;
+            col_size = b;
             arr_ptr = c;
         }
 
         auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
         auto col_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(1)->remit(cg));
 
-        index = cg.world.op(Wrap::add, (nat_t) 0, col_id, cg.world.op(Wrap::mul, (nat_t) 0, row_size, row_id));
-
+        index = cg.world.row_col_to_index(row_id, col_id, col_size);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
+    }else if((isa_m64 || is_m64_ref) && args().size() == 1){
+        const Def* row_size;
+        //const Def* col_size;
+        const Def* arr_ptr;
+        index = arg(0)->remit(cg);
+
+        if(is_m64_ref){
+            auto agg = lhs()->lemit(cg);
+            return cg.load(cg.world.op_lea_unsafe(agg, index, cg.loc2dbg(loc())), loc());
+        }else{
+            auto tuple = lhs()->remit(cg);
+            return cg.world.extract_unsafe(tuple, index);
+        }
     }else{
         auto agg = lhs()->lemit(cg);
 
@@ -905,6 +918,7 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
 const Def* MapExpr::remit(CodeGen& cg) const {
     auto ltype = unpack_ref_type(lhs()->type());
 
+    dump();
     if (auto cn = ltype->isa<FnType>()) {
         const Def* dst = nullptr;
 
@@ -999,7 +1013,7 @@ const Def* MapExpr::remit(CodeGen& cg) const {
         s2.fmt("_cont ret {}\n",ret);
 
         return ret;
-    } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>()) {
+    } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>() || is_m64(ltype)) {
         auto index = arg(0)->remit(cg);
         return cg.world.extract_unsafe(lhs()->remit(cg), index, cg.loc2dbg(loc()));
     }
