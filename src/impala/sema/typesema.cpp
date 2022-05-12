@@ -376,18 +376,26 @@ void InfixExpr::check(TypeSema& sema) const {
     sema.check(rhs());
 
     auto match_type = [&](const Type* ltype, const Type* rtype) {
-        if(is_mat(ltype) || is_mat(rtype)) {
-            if (!(is_mat(ltype) || is_f64(ltype)) && !(is_mat(rtype) || is_f64(rtype)) && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
-                error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
-                error(lhs(),  "left-hand side type is '{}'", ltype);
-                error(rhs(), "right-hand side type is '{}'", rtype);
+        bool match;
+        if(auto lmat_type = ltype->isa<MatrixType>()) {
+            const Type* lelem_type = lmat_type->elem_type();
+            const Type* type = rtype;
+            if(auto rmat_type = rtype->isa<MatrixType>()) {
+                type = rmat_type->elem_type();
             }
+
+            match = lelem_type == type;
+        }else if(auto rmat_type = rtype->isa<MatrixType>()){
+            auto relem_type = rmat_type->elem_type();
+            match = ltype == relem_type;
         }else {
-            if (ltype != rtype && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
-                error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
-                error(lhs(),  "left-hand side type is '{}'", ltype);
-                error(rhs(), "right-hand side type is '{}'", rtype);
-            }
+            match = ltype == rtype;
+        }
+
+        if (!match && !ltype->isa<TypeError>() && !rtype->isa<TypeError>()) {
+            error(this, "both left-hand side and right-hand side of binary '{}' must agree on the same type", tok2str(this));
+            error(lhs(),  "left-hand side type is '{}'", ltype);
+            error(rhs(), "right-hand side type is '{}'", rtype);
         }
     };
 
