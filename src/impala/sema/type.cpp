@@ -409,116 +409,41 @@ const Type* FnType::rev_diffed_type() const {
         return table().type_error();
 
     auto ret = return_type();
-//    std::cout << "Ret: " << ret << std::endl;
     auto in_tan = ret->tangent_vector();
     auto params = params_without_return_continuation();
-//    std::cout << "Params: " << params << " " << params->tag() << " " << is_ptr(params) << std::endl;
     auto out_tan = params->tangent_vector();
 
-//    Stream s2;
-//    s2.fmt("in: {} => {}\n", ret, in_tan);
-//    s2.fmt("out_tan: {} => {}\n", params,out_tan);
-
     if(!out_tan){
-//    std::cout << "Out tan empty: " << out_tan << std::endl;
-//        out_tan=table().prim_type(PrimType_f32);
-        out_tan=table().prim_type(dummy_deriv);
+        out_tan = table().prim_type(dummy_deriv);
     }
 
-//    std::cout << "Out: " << out_tan << std::endl;
-
-//    auto out_tan_fn = table().fn_type(out_tan);
-//    std::cout << "OutTanFn generated. " << std::endl;
-
     if(!in_tan){
-//    std::cout << "Out tan empty: " << out_tan << std::endl;
-//        out_tan=table().prim_type(PrimType_f32);
         in_tan=table().prim_type(dummy_deriv);
     }
 
-//    auto combined_tuple = table().tuple_type({in_tan, out_tan_fn});
-//    auto pbtype = table().fn_type(combined_tuple);
-    auto pbtype=table().flat_fun(in_tan,out_tan);
+    auto pbtype = table().flat_fun(in_tan,out_tan);
 
-//    s2.fmt("pbtype: {}\n", pbtype);
+    auto ret_ty = return_type()->tangent_vector(true);
 
+    const Type* codom;
 
-//    std::cout << "created pb type. " << std::endl;
-//    if (auto t = params_without_return_continuation()->isa<TupleType>();false) {
-////        std::cout << "tuple in" << std::endl;
-//        // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
-//
-//        // TODO: Problem if arg is only unit
-////    std::cout << "num ops " << t->num_ops() << std::endl;
-//        Array<const Type*> params(t->num_ops() + 1);
-//        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
-//            params[i] = t->op(i);
-//        }
-////        std::cout << "created params. " << std::endl;
-//        auto ret = table().tuple_type({return_type(), pbtype});
-////        std::cout << "created ret. " << std::endl;
-//        params.back() = table().fn_type(ret);
-////        std::cout << "created back. " << std::endl;
-//
-//        return table().fn_type(params);
-//    }
-//    else {
-//        std::cout << "no-tuple in" << std::endl;
-//        Array<const Type*> res_params(2);
-//        res_params[0] = params_without_return_continuation()->tangent_vector(true);
-        auto ret_ty = return_type()->tangent_vector(true);
-//        assert(ret_ty);
-//        res_params[1] = table().fn_type(table().tuple_type({ret_ty, pbtype}));
-//
-////        s2.fmt("params: {}\n", res_params);
-//        auto fn_type = table().fn_type(res_params);
-//        s2.fmt("params fn: {}\n", fn_type);
-
-        const Type* codom;
-
-        if (auto t = ret_ty->isa<TupleType>()) {
-            Array<const Type*> ret_pb(t->num_ops() + 1);
-            for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
-                ret_pb[i] = t->op(i);
-            }
-            ret_pb.back() = pbtype;
-            codom=table().tuple_type(ret_pb);
-        }else {
-            codom=table().tuple_type({ret_ty,pbtype});
+    if (auto t = ret_ty->isa<TupleType>()) {
+        Array<const Type*> ret_pb(t->num_ops() + 1);
+        for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
+            ret_pb[i] = t->op(i);
         }
+        ret_pb.back() = pbtype;
+        codom=table().tuple_type(ret_pb);
+    }else {
+        codom=table().tuple_type({ret_ty,pbtype});
+    }
 
-        auto fn_type = table().flat_fun(
-                params_without_return_continuation()->tangent_vector(true),
-                codom
-//    table().tuple_type({ret_ty, pbtype})
+    auto fn_type = table().flat_fun(
+        params_without_return_continuation()->tangent_vector(true),
+        codom
     );
 
-        return fn_type;
-//    }
-
-#if 0
-    // for now, we just say that in_tan is precisely the type of the singular seed value
-    if (auto t = params_without_return_continuation()->isa<TupleType>()) {
-        // fn(f32, f32) -> f32 becomes fn(f32, f32, f32) -> (f32, f32)
-        Array<const Type*> params(t->num_ops() + 1);
-        for (size_t i = 0; i < t->num_ops(); ++i) {
-            params[i] = t->op(i);
-        }
-        // TODO: we assume that out_tan is a scalar. This may change in the future.
-        auto ret = table().tuple_type({return_type(), out_tan});
-        params.back() = table().fn_type(ret);
-
-        return table().fn_type(params);
-    }
-    else {
-        Array<const Type*> params(3);
-        params[0] = params_without_return_continuation();
-        params[1] = in_tan;
-        params[2] = table().fn_type(table().tuple_type({return_type(), out_tan}));
-
-        return table().fn_type(params);
-    }
-#endif
+    return fn_type;
 }
 
 /*
@@ -535,9 +460,11 @@ const Type* FnType::tangent_vector(bool left) const {
     return rev_diffed_type();
 }
 
+const Type* MatrixType::tangent_vector(bool left) const {
+    return this;
+}
+
 const Type* PrimType::tangent_vector(bool left) const {
-//        std::cout << "found prim" << std::endl;
-//    return this;
     return (is_float(this) || left) ? this : nullptr;
 }
 

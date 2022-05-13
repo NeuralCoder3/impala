@@ -59,7 +59,7 @@ public:
         }
     }
 
-    std::pair<Lam*, const Def*> call(const Def* callee, Defs args, const thorin::Def* ret_type, const Def* dbg, bool disable_inline = false) {
+    std::pair<Lam*, const Def*> call(const Def* callee, Defs args, const thorin::Def* ret_type, const Def* dbg) {
         if (ret_type == nullptr) {
             cur_bb->app(false, callee, args, dbg);
             auto next = basicblock(world.dbg("unreachable"));
@@ -72,7 +72,7 @@ public:
         // if the return type is a sigma, flatten it
         auto sigma = ret_type->isa<thorin::Sigma>();
         // TODO: not flatten for rev_diff pb cont
-        if (!disable_inline && sigma && !sigma->isa_nom()) {
+        if (sigma && !sigma->isa_nom()) {
             for (auto op : sigma->ops())
                 cont_args.push_back(op);
         } else
@@ -904,13 +904,12 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
         const Def* arr_ptr;
         if(is_mat_ref){
             auto agg = lhs()->lemit(cg);
-
-            col_size = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 1), cg.loc2dbg(loc())), loc());
-            arr_ptr = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 2), cg.loc2dbg(loc())), loc());
+            col_size = cg.load(cg.world.op_lea(agg, cg.world.lit_int(1)), loc());
+            arr_ptr = cg.load(cg.world.op_lea(agg, cg.world.lit_int(2)), loc());
         }else{
             auto tuple = lhs()->remit(cg);
-            col_size = cg.world.extract(tuple, (u64)3, (u64)1);
-            arr_ptr = cg.world.extract(tuple, (u64)3, (u64)2);
+            col_size = cg.world.extract(tuple, 1);
+            arr_ptr = cg.world.extract(tuple, 2);
         }
 
         auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
@@ -1021,14 +1020,13 @@ const Def* MapExpr::remit(CodeGen& cg) const {
         defs.front() = cg.cur_mem; // now get the current memory value
 
         auto return_type = cn->return_type();
-        auto disable_inline = is_mat(return_type);
         auto ret_type = num_args() == cn->num_params() ? nullptr : cg.convert(cn->return_type());
         const Def* ret;
         Stream s2;
         s2.fmt("_cont callee {} : {}\n",dst, dst->type());
         s2.fmt("_cont defs ({, })\n",defs);
         s2.fmt("_cont type {}\n",ret_type);
-        std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()), disable_inline);
+        std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()));
         if (ret_type)
             cg.cur_mem = cg.cur_bb->var(0_s);
 

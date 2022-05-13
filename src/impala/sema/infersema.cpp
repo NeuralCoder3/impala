@@ -939,17 +939,20 @@ const Type* MapExpr::infer(InferSema& sema) const {
     if (ltype->isa<FnType>())
         return sema.infer_call(lhs(), args(), sema.find_type(this));
 
-    if (ltype->isa<MatrixType>()){
+    if (auto matType = ltype->isa<MatrixType>()){
         auto arg_size = args().size();
+        auto elem_type = matType->elem_type();
         if(arg_size == 1){
             auto indexType = sema.prim_type(PrimType_u64);
-            auto tupleType = sema.tuple_type({indexType, indexType, sema.borrowed_ptr_type(sema.indefinite_array_type(sema.prim_type(PrimType_f64)), true, 0)});
+            auto tupleType = sema.tuple_type({indexType, indexType,
+                                      sema.borrowed_ptr_type(
+                                              sema.indefinite_array_type(elem_type), true, 0)});
             if (auto lit = arg(0)->isa<LiteralExpr>())
                 return tupleType->op(lit->get());
             else
                 return sema.unknown_type();
         }else if(arg_size == 2){
-            return sema.ref_type(sema.prim_type(PrimType_f64), true, 0);
+            return sema.ref_type(elem_type, true, 0);
         }
     }
 

@@ -539,6 +539,8 @@ public:
 
     Stream& stream(Stream&) const override;
 
+    virtual const Type* tangent_vector(bool left=false) const override;
+
 private:
     const Type* vrebuild(TypeTable&, Types) const override;
 
