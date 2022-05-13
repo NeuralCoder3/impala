@@ -281,7 +281,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if(auto matrix_type = type->isa<MatrixType>()){
-        return world.type_matrix(convert_rec(matrix_type->elem_type()));
+        return world.type_mat(convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -909,9 +909,8 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             arr_ptr = cg.load(cg.world.op_lea_unsafe(agg, cg.world.lit_int_width(64, 2), cg.loc2dbg(loc())), loc());
         }else{
             auto tuple = lhs()->remit(cg);
-            auto [a,b,c] = tuple->projs<3>();
-            col_size = b;
-            arr_ptr = c;
+            col_size = cg.world.extract(tuple, (u64)3, (u64)1);
+            arr_ptr = cg.world.extract(tuple, (u64)3, (u64)2);
         }
 
         auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
