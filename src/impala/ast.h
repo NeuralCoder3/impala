@@ -1899,18 +1899,10 @@ private:
     std::unique_ptr<const Expr> expr_;
 };
 
-class CreateMatrixExpr : public Expr{
+class CreateMatrixExpr : public Expr, Args{
 public:
-    CreateMatrixExpr(Loc loc, const Expr* row_size, const Expr* col_size, const ASTType* matrix_type) :
-        Expr(loc) , row_size_(row_size), col_size_(col_size), elem_type_(matrix_type) {}
-
-    const Expr* rowSize() const{
-        return row_size_;
-    }
-
-    const Expr* colSize() const{
-        return col_size_;
-    }
+    CreateMatrixExpr(Loc loc, Exprs&& dims, const ASTType* matrix_type) :
+        Expr(loc) , Args(std::move(dims)), elem_type_(matrix_type) {}
 
     const ASTType* elem_type() const{
         return elem_type_;
@@ -1924,8 +1916,6 @@ private:
     void check(TypeSema &) const override;
     const thorin::Def *remit(CodeGen &) const override;
 
-    const Expr* row_size_;
-    const Expr* col_size_;
     const ASTType* elem_type_;
 };
 

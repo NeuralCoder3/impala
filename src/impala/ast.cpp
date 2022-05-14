@@ -122,7 +122,13 @@ bool RevDiffExpr::has_side_effect() const { return expr()->has_side_effect(); }
 
 
 bool CreateMatrixExpr::has_side_effect() const {
-    return rowSize()->has_side_effect() || colSize()->has_side_effect();
+    for( auto& expr : args() ){
+        if(expr->has_side_effect()){
+            return true;
+        }
+    }
+
+    return false;
 }
 
 

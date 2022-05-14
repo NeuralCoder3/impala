@@ -115,13 +115,13 @@ public:
     }
 
     const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* b, const Def* dbg = {}){
-        auto [mem, matrix] = world.op(o, rmode, a, b, cur_mem, dbg)->projs<2>();
+        auto [mem, matrix] = world.op(o, rmode, cur_mem, a, b, dbg)->projs<2>();
         cur_mem = mem;
         return matrix;
     }
 
     const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* dbg = {}){
-        auto [mem, matrix] = world.op(o, rmode, a, cur_mem, dbg)->projs<2>();
+        auto [mem, matrix] = world.op(o, rmode, cur_mem, a, dbg)->projs<2>();
         cur_mem = mem;
         return matrix;
     }
@@ -154,8 +154,14 @@ public:
 
     const thorin::Def* rev_diff(const thorin::Def *primal) { return world.op_rev_diff(primal); }
 
-    const thorin::Def* create_matrix(const Def* elem_type, const Expr* row_size, const Expr* col_size) {
-        auto [mem, matrix] = world.op_create_matrix(elem_type, row_size->remit(*this), col_size->remit(*this), cur_mem)->projs<2>();
+    const thorin::Def* create_matrix(const Def* elem_type, const Exprs& dims ) {
+        DefArray defs{dims.size()};
+
+        for(size_t i = 0 ; i < dims.size() ; i++){
+            defs[i] = dims[i]->remit(*this);
+        }
+
+        auto [mem, matrix] = world.op_create_matrix(elem_type, defs, cur_mem)->projs<2>();
         cur_mem = mem;
         return matrix;
     }
@@ -213,37 +219,22 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
             default: thorin::unreachable();
         }
     } else if (auto cn = type->isa<FnType>()) {
-//        s2.fmt("  convert Fn type with {} args\n",cn->num_params());
-//        s2.fmt("  fn arg 0 exists: {}\n",cn->op(0) ? 1 : 0);
-//        s2.fmt("  fn arg 0: {}\n",cn->op(0));
-//        s2.fmt("  fn is tuple arg: {}\n",cn->op(0)->isa<TupleType>() ? 1 : 0);
         // TODO: why suddenly one more?
         std::vector<const thorin::Def*> nops;
         nops.push_back(world.type_mem());
         for (size_t i = 0, e = cn->num_params(); i != e; ++i) {
-//            s2.fmt("  arg #{}\n",i);
-//            auto param=cn->param(i);
-//            s2.fmt("  convert Fn arg {}\n",param);
-//            auto res=convert(param);
             auto res=convert(cn->param(i));
-//            s2.fmt("  converted to {}\n",res);
             nops.push_back(res);
         }
-//        s2.fmt("  converted params\n");
         auto cn_ty = world.cn(nops);
-//        s2.fmt("  fn to {}\n",cn_ty);
         return cn_ty;
     } else if (auto tuple_type = type->isa<TupleType>()) {
         std::vector<const thorin::Def*> nops;
-//        s2.fmt("  tuple to sigma\n");
         for (auto&& op : tuple_type->ops()) {
             auto op_conv = convert(op);
-//            s2.fmt("   op {} -> {}\n",op,op_conv);
             nops.push_back(op_conv);
         }
         auto sig=world.sigma(nops);
-//        auto sig=world.sigma(nops,{},false);
-//        s2.fmt("  sigma to {}\n",sig);
         return sig;
     } else if (auto struct_type = type->isa<StructType>()) {
         auto s = world.nom_sigma(struct_type->num_ops(), world.dbg(struct_type->struct_decl()->symbol().c_str()));
@@ -276,12 +267,11 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
         return world.type_ptr(convert(ptr->pointee()), ptr->addr_space());
     } else if (auto definite_array_type = type->isa<DefiniteArrayType>()) {
         auto arr = world.arr(definite_array_type->dim(), convert(definite_array_type->elem_type()));
-//        s2.fmt("  def array to {}\n",arr);
         return arr;
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if(auto matrix_type = type->isa<MatrixType>()){
-        return world.type_mat(convert_rec(matrix_type->elem_type()));
+        return world.type_mat_unsafe(convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -898,8 +888,10 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
     auto ref_type = lhs()->type()->isa<RefType>();
     bool is_mat_ref = ref_type && is_mat(ref_type->pointee());
 
-    const Def* index;
-    if((isa_mat || is_mat_ref) && args().size() == 2){
+    const Def* index = nullptr;
+    if((isa_mat || is_mat_ref)){
+        auto arity = args().size();
+
         const Def* col_size;
         const Def* arr_ptr;
         if(is_mat_ref){
@@ -908,16 +900,28 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             arr_ptr = cg.load(cg.world.op_lea(agg, cg.world.lit_int(2)), loc());
         }else{
             auto tuple = lhs()->remit(cg);
-            col_size = cg.world.extract(tuple, 1);
-            arr_ptr = cg.world.extract(tuple, 2);
+
+            for( u64 i = 1 ; i < arity ; i++ ){
+                auto dim = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(i)->remit(cg));
+
+                if(index == nullptr){
+                    index = dim;
+                }else{
+                    auto dim_size = cg.world.extract(tuple, arity, i);
+                    index = cg.world.op(Wrap::add, (nat_t)0, dim, cg.world.op(Wrap::mul, (nat_t)0, index, dim_size));
+                }
+            }
+
+            arr_ptr = cg.world.extract(tuple, arity, (u64)0);
         }
 
-        auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
-        auto col_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(1)->remit(cg));
+        //auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
+        //auto col_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(1)->remit(cg));
 
-        index = cg.world.row_col_to_index(row_id, col_id, col_size);
+        //index = cg.world.row_col_to_index(row_id, col_id, col_size);
+
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
-    }else if((isa_mat || is_mat_ref) && args().size() == 1){
+    }/*else if((isa_mat || is_mat_ref) && args().size() == 1){
         index = arg(0)->remit(cg);
 
         if(is_mat_ref){
@@ -927,7 +931,7 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             auto tuple = lhs()->remit(cg);
             return cg.world.extract_unsafe(tuple, index);
         }
-    }else{
+    }*/else{
         auto agg = lhs()->lemit(cg);
 
         index = arg(0)->remit(cg);
@@ -1238,7 +1242,7 @@ const Def* RevDiffExpr::remit(CodeGen& cg) const {
 
 const Def* CreateMatrixExpr::remit(CodeGen& cg) const {
     auto elem_ty = cg.convert(elem_type()->type());
-    return cg.create_matrix(elem_ty, rowSize(), colSize());
+    return cg.create_matrix(elem_ty, args());
 }
 
 /*

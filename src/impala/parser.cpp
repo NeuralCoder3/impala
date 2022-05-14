@@ -1296,11 +1296,13 @@ const CreateMatrixExpr *Parser::parse_tensor_alloc() {
     auto type = parse_type();
     expect(Token::R_BRACKET, "matrix expression");
     expect(Token::L_PAREN, "matrix expression");
-    auto row_size = parse_expr();
-    expect(Token::COMMA, "matrix expression");
-    auto col_size = parse_expr();
-    expect(Token::R_PAREN, "matrix expression");
-    return new CreateMatrixExpr(tracker, row_size, col_size, type);
+
+    Exprs exprs;
+    parse_comma_list("matrix expression", Token::R_PAREN, [&] {
+        exprs.emplace_back(parse_expr());
+    });
+
+    return new CreateMatrixExpr(tracker, std::move(exprs), type);
 }
 
 /*

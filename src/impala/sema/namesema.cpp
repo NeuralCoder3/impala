@@ -413,8 +413,9 @@ void ForExpr::bind(NameSema& sema) const {
 void RevDiffExpr::bind(NameSema &sema) const { expr()->bind(sema); }
 
 void CreateMatrixExpr::bind(NameSema &sema) const {
-    rowSize()->bind(sema);
-    colSize()->bind(sema);
+    for(auto& expr : args()){
+        expr->bind(sema);
+    }
 }
 
 
