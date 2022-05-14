@@ -271,7 +271,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if(auto matrix_type = type->isa<MatrixType>()){
-        return world.type_mat_unsafe(convert_rec(matrix_type->elem_type()));
+        return world.type_mat(convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -901,27 +901,22 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
         }else{
             auto tuple = lhs()->remit(cg);
 
-            for( u64 i = 1 ; i < arity ; i++ ){
+            for( u64 i = 0 ; i < arity ; i++ ){
                 auto dim = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(i)->remit(cg));
 
                 if(index == nullptr){
                     index = dim;
                 }else{
-                    auto dim_size = cg.world.extract(tuple, arity, i);
+                    auto dim_size = cg.world.extract(tuple, i + 1);
                     index = cg.world.op(Wrap::add, (nat_t)0, dim, cg.world.op(Wrap::mul, (nat_t)0, index, dim_size));
                 }
             }
 
-            arr_ptr = cg.world.extract(tuple, arity, (u64)0);
+            arr_ptr = cg.world.extract(tuple, (u64)0);
         }
 
-        //auto row_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(0)->remit(cg));
-        //auto col_id = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(1)->remit(cg));
-
-        //index = cg.world.row_col_to_index(row_id, col_id, col_size);
-
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
-    }/*else if((isa_mat || is_mat_ref) && args().size() == 1){
+    }else if((isa_mat || is_mat_ref) && args().size() == 1){
         index = arg(0)->remit(cg);
 
         if(is_mat_ref){
@@ -929,9 +924,9 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             return cg.load(cg.world.op_lea_unsafe(agg, index, cg.loc2dbg(loc())), loc());
         }else{
             auto tuple = lhs()->remit(cg);
-            return cg.world.extract_unsafe(tuple, index);
+            return cg.world.extract(tuple, index);
         }
-    }*/else{
+    }else{
         auto agg = lhs()->lemit(cg);
 
         index = arg(0)->remit(cg);

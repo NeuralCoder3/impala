@@ -618,7 +618,7 @@ void MapExpr::check(TypeSema& sema) const {
             error(this, "too many simd vector subscripts");
     } else if(is_mat(ltype)) {
         for(auto& expr : args()) {
-            sema.expect_int(arg(0), "require integer as matrix subscript");
+            sema.expect_int(expr.get(), "require integer as matrix subscript");
         }
     } else
         error(this, "incorrect type for map expression");
