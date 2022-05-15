@@ -120,14 +120,18 @@ public:
         return matrix;
     }
 
-    const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* dbg = {}){
-        auto [mem, matrix] = world.op(o, rmode, cur_mem, a, dbg)->projs<2>();
+    const Def* mop(MOp o, nat_t mode, const Def* a, const Def* b, const Def* dbg = {}) {
+        return mop(o, world.lit_nat(mode), a, b, dbg);
+    }
+
+    const Def* unary_mop(MOp o, const Def* rmode, const Def* a, const Def* dbg = {}){
+        auto [mem, matrix] = world.unary_op(o, rmode, cur_mem, a, dbg)->projs<2>();
         cur_mem = mem;
         return matrix;
     }
 
-    const Def* mop(MOp o, nat_t mode, const Def* a, const Def* b, const Def* dbg = {}) {
-        return mop(o, world.lit_nat(mode), a, b, dbg);
+    const Def* unary_mop(MOp o, nat_t mode, const Def* a, const Def* dbg = {}) {
+        return unary_mop(o, world.lit_nat(mode), a, dbg);
     }
 
     const Def* load(const Def*  ptr, Loc loc) { return handle_mem_res(world.op_load(cur_mem, ptr, loc2dbg(loc))); }
@@ -1054,13 +1058,17 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
     auto tup = lhs()->remit(cg);
 
     if(auto matrixType = lhs()->type()->isa<MatrixType>()){
-        return cg.world.tuple({
-          cg.world.extract(tup,  1, cg.loc2dbg(loc())),
-          cg.world.extract(tup,  2, cg.loc2dbg(loc()))
-        });
-    }else{
-        return cg.world.extract(tup, as_lit(tup->arity()), index(), cg.loc2dbg(loc()));
+        if(identifier()->symbol() == "shape"){
+            return cg.world.tuple({
+              cg.world.extract(tup,  1, cg.loc2dbg(loc())),
+              cg.world.extract(tup,  2, cg.loc2dbg(loc()))
+            });
+        }else if(identifier()->symbol() == "T"){
+            return cg.unary_mop( MOp::transpose, RMode::none, tup );
+        }
     }
+
+    return cg.world.extract(tup, as_lit(tup->arity()), index(), cg.loc2dbg(loc()));
 }
 
 const Def* BlockExpr::remit(CodeGen& cg) const {

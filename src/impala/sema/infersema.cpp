@@ -871,15 +871,12 @@ const Type* FieldExpr::infer(InferSema& sema) const {
             return sema.wrap_ref(ref, struct_type->op((*field_decl)->index()));
         }
     }else if(auto matrixType = ltype->isa<MatrixType>()){
-        auto index = sema.prim_type(PrimType_u64);
-        Array<const Type*> indices{ matrixType->dim_count()};
-        for(size_t i = 0 ; i < matrixType->dim_count() ; i++){
-            indices[i] = index;
+        if(identifier()->symbol() == "shape"){
+            auto index = sema.prim_type(PrimType_u64);
+            return sema.tuple_type(Array<const Type*>::repeat(matrixType->dim_count(), index));
+        }else if(identifier()->symbol() == "T"){
+            return matrixType;
         }
-        auto result = sema.tuple_type(indices);
-        result->dump();
-
-        return result;
     }
 
     return ltype->is_known() ? sema.type_error() : sema.find_type(this);
