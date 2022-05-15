@@ -779,9 +779,11 @@ const MatrixASTType* Parser::parse_matrix_type() {
     auto tracker = track();
     eat(Token::MAT);
     expect(Token::L_BRACKET, "parse_matrix_type");
+    uint64_t dim_count = parse_integer("dim count");
+    expect(Token::COLON, "parse_matrix_type");
     auto type = parse_type();
     expect(Token::R_BRACKET, "parse_matrix_type");
-    return new MatrixASTType(tracker, type);
+    return new MatrixASTType(tracker, dim_count, type);
 }
 
 const PtrASTType* Parser::parse_ptr_type() {

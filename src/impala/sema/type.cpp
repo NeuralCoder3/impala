@@ -216,7 +216,7 @@ Stream& TupleType::stream(Stream& os) const { return os.fmt("({, })", ops()); }
  */
 
 const Type* PrimType           ::vrebuild(TypeTable& to, Types    ) const { return to.prim_type(primtype_tag()); }
-const Type* MatrixType         ::vrebuild(TypeTable& to, Types ops) const { return to.matrix_type(ops[0]); }
+const Type* MatrixType         ::vrebuild(TypeTable& to, Types ops) const { return to.matrix_type(dim_count(), ops[0]); }
 const Type* FnType             ::vrebuild(TypeTable& to, Types ops) const { return to.fn_type(ops); }
 const Type* App                ::vrebuild(TypeTable& to, Types ops) const { return to.app(ops[0], ops[1]); }
 const Type* Lambda             ::vrebuild(TypeTable& to, Types ops) const { return to.lambda(ops[0], name()); }
@@ -589,8 +589,8 @@ const Type* IndefiniteArrayType::tangent_vector(bool left) const {
 const Type* DefiniteArrayType::tangent_vector(bool left) const {
     auto elem_tangent_vector = elem_type()->tangent_vector(left);
     return elem_tangent_vector != nullptr
-            ? table().definite_array_type(elem_tangent_vector, dim())
-            : nullptr;
+           ? table().definite_array_type(elem_tangent_vector, dim())
+           : nullptr;
 }
 
 }

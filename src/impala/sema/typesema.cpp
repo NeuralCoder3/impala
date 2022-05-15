@@ -580,6 +580,17 @@ void FieldExpr::check(TypeSema& sema) const {
             field_decl_ = *field_decl;
         else
             error(lhs(), "attempted access of field '{}' on type '{}', but no field with that name was found", symbol(), type);
+    } else if (auto matrix_type = type->isa<MatrixType>()) {
+        auto name = symbol().str();
+
+        if(name != "shape"){
+            error(lhs(), "request for field '{}' in something not a structure", symbol());
+        }
+
+        /*if (auto field_decl = struct_decl->field_decl(symbol()))
+            field_decl_ = *field_decl;
+        else
+            error(lhs(), "attempted access of field '{}' on type '{}', but no field with that name was found", symbol(), type);*/
     } else if (!type->isa<TypeError>())
         error(lhs(), "request for field '{}' in something not a structure", symbol());
 }
@@ -620,8 +631,10 @@ void MapExpr::check(TypeSema& sema) const {
         for(auto& expr : args()) {
             sema.expect_int(expr.get(), "require integer as matrix subscript");
         }
-    } else
+    } else {
+        lhs()->dump();
         error(this, "incorrect type for map expression");
+    }
 }
 
 void TypeSema::check_call(const Expr* expr, ArrayRef<const Expr*> args) {

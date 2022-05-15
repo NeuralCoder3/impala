@@ -412,7 +412,7 @@ const Type* PrimASTType::infer(InferSema& sema) const {
 }
 
 const Type* MatrixASTType::infer(InferSema& sema) const {
-    return sema.matrix_type(sema.infer(elem_type()));
+    return sema.matrix_type(dim_count(), sema.infer(elem_type()));
 }
 
 const Type* PtrASTType::infer(InferSema& sema) const {
@@ -870,6 +870,16 @@ const Type* FieldExpr::infer(InferSema& sema) const {
         if (auto field_decl = struct_type->struct_decl()->field_decl(symbol())) {
             return sema.wrap_ref(ref, struct_type->op((*field_decl)->index()));
         }
+    }else if(auto matrixType = ltype->isa<MatrixType>()){
+        auto index = sema.prim_type(PrimType_u64);
+        Array<const Type*> indices{ matrixType->dim_count()};
+        for(size_t i = 0 ; i < matrixType->dim_count() ; i++){
+            indices[i] = index;
+        }
+        auto result = sema.tuple_type(indices);
+        result->dump();
+
+        return result;
     }
 
     return ltype->is_known() ? sema.type_error() : sema.find_type(this);
@@ -1044,7 +1054,7 @@ const Type* CreateMatrixExpr::infer(InferSema& sema) const {
     for(auto& expr : args()){
         sema.rvalue(expr.get());
     }
-    return sema.matrix_type(sema.infer(elem_type()));
+    return sema.matrix_type(args().size(), sema.infer(elem_type()));
 }
 
 //------------------------------------------------------------------------------

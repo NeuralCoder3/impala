@@ -305,7 +305,7 @@ private:
 
 class MatrixASTType : public ASTType {
 public:
-    MatrixASTType(Loc loc, const ASTType* elem_type) : ASTType(loc), elem_type_(elem_type)
+    MatrixASTType(Loc loc, uint64_t dim_count, const ASTType* elem_type) : ASTType(loc), dim_count_(dim_count), elem_type_(elem_type)
     {}
 
     virtual void bind(NameSema&) const override;
@@ -315,6 +315,10 @@ public:
         return elem_type_;
     }
 
+    uint64_t dim_count() const{
+        return dim_count_;
+    }
+
 private:
     virtual const Type* infer(InferSema&) const override;
     virtual void check(TypeSema&) const override;
@@ -322,6 +326,7 @@ private:
     friend class InferSema;
     friend class TypeSema;
 
+    uint64_t dim_count_;
     const ASTType* elem_type_;
 };
 

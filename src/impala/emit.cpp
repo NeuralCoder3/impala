@@ -271,7 +271,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if(auto matrix_type = type->isa<MatrixType>()){
-        return world.type_mat(convert_rec(matrix_type->elem_type()));
+        return world.type_mat(matrix_type->dim_count(), convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -913,8 +913,14 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             }
 
             arr_ptr = cg.world.extract(tuple, (u64)0);
+            tuple->type()->dump();
         }
 
+        arr_ptr->type()->dump();
+        arr_ptr->dump();
+        index->dump();
+        index->type()->dump();
+        dump();
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
     }else if((isa_mat || is_mat_ref) && args().size() == 1){
         index = arg(0)->remit(cg);
@@ -1046,7 +1052,15 @@ const Def* FieldExpr::lemit(CodeGen& cg) const {
 
 const Def* FieldExpr::remit(CodeGen& cg) const {
     auto tup = lhs()->remit(cg);
-    return cg.world.extract(tup, as_lit(tup->arity()), index(), cg.loc2dbg(loc()));
+
+    if(auto matrixType = lhs()->type()->isa<MatrixType>()){
+        return cg.world.tuple({
+          cg.world.extract(tup,  1, cg.loc2dbg(loc())),
+          cg.world.extract(tup,  2, cg.loc2dbg(loc()))
+        });
+    }else{
+        return cg.world.extract(tup, as_lit(tup->arity()), index(), cg.loc2dbg(loc()));
+    }
 }
 
 const Def* BlockExpr::remit(CodeGen& cg) const {

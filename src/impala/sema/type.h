@@ -528,16 +528,22 @@ private:
 
 class MatrixType : public Type {
 public:
-    MatrixType(TypeTable& typetable, const Type* elem_type)
-            : Type(typetable, Tag_matrix, {elem_type})
+    MatrixType(TypeTable& typetable, uint64_t dim_count, const Type* elem_type)
+            : Type(typetable, Tag_matrix, {elem_type}), dim_count_(dim_count)
     {}
 
+    uint32_t vhash() const override { return thorin::hash_combine(Type::vhash(), dim_count()); }
     bool equal(const Type* other) const override {
-        return Type::equal(other);
+        return Type::equal(other) && dim_count() == other->as<MatrixType>()->dim_count();
     }
+
     const Type* elem_type() const { return op(0); }
 
     Stream& stream(Stream&) const override;
+
+    uint64_t dim_count() const{
+        return dim_count_;
+    }
 
     virtual const Type* tangent_vector(bool left=false) const override;
 
@@ -545,6 +551,8 @@ private:
     const Type* vrebuild(TypeTable&, Types) const override;
 
     friend class TypeTable;
+
+    uint64_t dim_count_;
 };
 
 inline bool is_no_ret_or_type_error(const Type* t) {
@@ -596,8 +604,8 @@ public:
     const RefType* ref_type(const Type* pointee, bool mut, uint64_t addr_space) {
         return unify(new RefType(*this, pointee, mut, addr_space));
     }
-    const MatrixType* matrix_type(const Type* elem_type){
-        return unify(new MatrixType(*this, elem_type));
+    const MatrixType* matrix_type(uint64_t dim_count, const Type* elem_type){
+        return unify(new MatrixType(*this, dim_count, elem_type));
     }
     const NoRetType* type_noret() { return type_noret_; }
     const PrimType* prim_type(PrimTypeTag tag);
