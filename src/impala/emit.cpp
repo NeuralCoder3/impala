@@ -1065,6 +1065,18 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
             });
         }else if(identifier()->symbol() == "T"){
             return cg.unary_mop( MOp::transpose, RMode::none, tup );
+        }else if(identifier()->symbol() == "sum"){
+            return cg.unary_mop( MOp::sum, RMode::none, tup );
+        }else if(identifier()->symbol() == "map"){
+            auto in_type = cg.world.type_real(64);
+            auto out_type = cg.world.type_real(64);
+            auto mapFunc = cg.world.cn_mem_ret_flat(in_type, out_type);
+            auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, out_type));
+            Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.dbg("test"));
+            auto [mem, result_mat] = cg.world.op(MOp::map, RMode::none, lam->mem_var(), lam->var(1), tup, {})->projs<2>();
+            lam->type()->dump();
+            lam->set_body(cg.world.app(lam->ret_var(), {mem, result_mat} ));
+            return lam;
         }
     }
 

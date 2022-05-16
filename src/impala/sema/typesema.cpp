@@ -581,7 +581,7 @@ void FieldExpr::check(TypeSema& sema) const {
         else
             error(lhs(), "attempted access of field '{}' on type '{}', but no field with that name was found", symbol(), type);
     } else if (auto matrix_type = type->isa<MatrixType>()) {
-        if(symbol() != "shape" && symbol() != "T"){
+        if(symbol() != "shape" && symbol() != "T" && symbol() != "sum" && symbol() != "map"){
             error(lhs(), "request for field '{}' in something not a structure", symbol());
         }
     } else if (!type->isa<TypeError>())

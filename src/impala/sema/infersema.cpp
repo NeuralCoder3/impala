@@ -876,6 +876,11 @@ const Type* FieldExpr::infer(InferSema& sema) const {
             return sema.tuple_type(Array<const Type*>::repeat(matrixType->dim_count(), index));
         }else if(identifier()->symbol() == "T"){
             return matrixType;
+        }else if(identifier()->symbol() == "sum"){
+            return matrixType->elem_type();
+        }else if(identifier()->symbol() == "map"){
+            auto elem_type = matrixType->elem_type();
+            return sema.flat_fun(sema.flat_fun(elem_type, elem_type), matrixType);
         }
     }
 
