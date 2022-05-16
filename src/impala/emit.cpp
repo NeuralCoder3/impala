@@ -917,14 +917,8 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             }
 
             arr_ptr = cg.world.extract(tuple, (u64)0);
-            tuple->type()->dump();
         }
 
-        arr_ptr->type()->dump();
-        arr_ptr->dump();
-        index->dump();
-        index->type()->dump();
-        dump();
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
     }else if((isa_mat || is_mat_ref) && args().size() == 1){
         index = arg(0)->remit(cg);
@@ -1074,7 +1068,6 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
             auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, out_type));
             Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.dbg("test"));
             auto [mem, result_mat] = cg.world.op(MOp::map, RMode::none, lam->mem_var(), lam->var(1), tup, {})->projs<2>();
-            lam->type()->dump();
             lam->set_body(cg.world.app(lam->ret_var(), {mem, result_mat} ));
             return lam;
         }
