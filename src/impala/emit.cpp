@@ -115,9 +115,7 @@ public:
     }
 
     const Def* mop(MOp o, const Def* rmode, const Def* a, const Def* b, const Def* dbg = {}){
-        auto [mem, matrix] = world.op(o, rmode, cur_mem, a, b, dbg)->projs<2>();
-        cur_mem = mem;
-        return matrix;
+        return handle_mem_res(world.op(o, rmode, cur_mem, a, b, dbg));
     }
 
     const Def* mop(MOp o, nat_t mode, const Def* a, const Def* b, const Def* dbg = {}) {
@@ -125,9 +123,7 @@ public:
     }
 
     const Def* unary_mop(MOp o, const Def* rmode, const Def* a, const Def* dbg = {}){
-        auto [mem, matrix] = world.unary_op(o, rmode, cur_mem, a, dbg)->projs<2>();
-        cur_mem = mem;
-        return matrix;
+        return handle_mem_res(world.unary_op(o, rmode, cur_mem, a, dbg));
     }
 
     const Def* unary_mop(MOp o, nat_t mode, const Def* a, const Def* dbg = {}) {
@@ -553,7 +549,6 @@ const Def* RValueExpr::lemit(CodeGen& cg) const {
 const Def* RValueExpr::remit(CodeGen& cg) const {
     if (src()->type()->isa<RefType>())
         return cg.load(lemit(cg), loc());
-    dump();
     return src()->remit(cg);
 }
 
@@ -1060,14 +1055,17 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
         }else if(identifier()->symbol() == "T"){
             return cg.unary_mop( MOp::transpose, RMode::none, tup );
         }else if(identifier()->symbol() == "sum"){
-            return cg.unary_mop( MOp::sum, RMode::none, tup );
+            auto result = cg.unary_mop( MOp::sum, RMode::none, tup );
+            auto test = cg.world.tuple(result->ops());
+            return result;
         }else if(identifier()->symbol() == "map"){
             auto in_type = cg.world.type_real(64);
             auto out_type = cg.world.type_real(64);
             auto mapFunc = cg.world.cn_mem_ret_flat(in_type, out_type);
             auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, out_type));
-            Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.dbg("test"));
-            auto [mem, result_mat] = cg.world.op(MOp::map, RMode::none, lam->mem_var(), lam->var(1), tup, {})->projs<2>();
+            Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.lit_true(), cg.world.dbg("map_stub"));
+
+            auto [mem, result_mat] = cg.world.op_map(lam->mem_var(), tup, lam->var(1), {})->projs<2>();
             lam->set_body(cg.world.app(lam->ret_var(), {mem, result_mat} ));
             return lam;
         }

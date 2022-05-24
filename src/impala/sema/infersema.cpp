@@ -844,9 +844,56 @@ const Type* InferSema::infer_call(const Expr* lhs, ArrayRef<const Expr*> args, c
 
     if (args.size()+1 == fn_type->num_params()) {
         Array<const Type*> types(args.size()+1);
-        for (size_t i = 0, e = args.size(); i != e; ++i)
-            types[i] = coerce(fn_type->param(i), args[i]);
-        types.back() = fn_type->last_param();
+
+        auto is_mapping_fn = true;
+        auto matches = false;
+        size_t shape_size = 0;
+        /*for (size_t i = 0, e = args.size(); i != e; ++i){
+            if(auto arg_mat = args[i]->type()->isa<MatrixType>()){
+                if(!fn_type->param(i)->isa<MatrixType>()){
+                    matches = true;
+                    if(shape_size == 0){
+                        shape_size = arg_mat->dim_count();
+                    }else if(shape_size != arg_mat->dim_count()){
+                        is_mapping_fn = false;
+                        break;
+                    }
+
+                    auto elem_type = arg_mat->elem_type();
+                    auto unified = unify(fn_type->param(i), elem_type);
+                    if(unified->isa<InferError>()){
+                        is_mapping_fn = false;
+                        break;
+                    }
+                    types[i] = unified;
+                }
+            }
+        }*/
+
+        if(is_mapping_fn && matches){
+            auto original_return = fn_type->return_type();
+
+            const Type* dst_return;
+
+            if(auto tuple_type = original_return->isa<TupleType>()){
+                std::vector<const Type*> vec;
+                for(size_t i = 0; i < tuple_type->num_ops(); i++){
+                    vec.push_back(matrix_type(shape_size,  tuple_type->op(i)));
+                }
+
+                dst_return = this->tuple_type(vec);
+            }else{
+                dst_return = matrix_type(shape_size,  original_return);
+            }
+
+            types.back() = this->fn_type(dst_return);
+            lhs->type_ = this->fn_type(types);
+            return dst_return;
+        }else{
+            for (size_t i = 0, e = args.size(); i != e; ++i)
+                types[i] = coerce(fn_type->param(i), args[i]);
+            types.back() = fn_type->last_param();
+        }
 
         auto result = constrain(lhs, this->fn_type(types));
         if (auto fn_type = result->isa<FnType>())

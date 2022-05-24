@@ -625,7 +625,6 @@ void MapExpr::check(TypeSema& sema) const {
             sema.expect_int(expr.get(), "require integer as matrix subscript");
         }
     } else {
-        lhs()->dump();
         error(this, "incorrect type for map expression");
     }
 }
@@ -635,8 +634,8 @@ void TypeSema::check_call(const Expr* expr, ArrayRef<const Expr*> args) {
 
     if (fn_type->num_params() == args.size() ||
         (fn_type->num_params() == args.size() + 1 && fn_type->is_returning())) {
-        for (size_t i = 0; i < args.size(); i++)
-            expect_type(fn_type->param(i), args[i], "argument type");
+        //for (size_t i = 0; i < args.size(); i++)
+            //expect_type(fn_type->param(i), args[i], "argument type");
     } else
         error(expr, "incorrect number of arguments in function application: got {}, expected {}",
               args.size(), std::max(size_t(0), fn_type->num_params() - (fn_type->is_returning() ? 1 : 0)));
