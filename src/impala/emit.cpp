@@ -890,41 +890,21 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
     const Def* index = nullptr;
     if((isa_mat || is_mat_ref)){
         auto arity = args().size();
+        auto tuple = lhs()->remit(cg);
 
-        const Def* col_size;
-        const Def* arr_ptr;
-        if(is_mat_ref){
-            auto agg = lhs()->lemit(cg);
-            col_size = cg.load(cg.world.op_lea(agg, cg.world.lit_int(1)), loc());
-            arr_ptr = cg.load(cg.world.op_lea(agg, cg.world.lit_int(2)), loc());
-        }else{
-            auto tuple = lhs()->remit(cg);
+        for( u64 i = 0 ; i < arity ; i++ ){
+            auto dim = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(i)->remit(cg));
 
-            for( u64 i = 0 ; i < arity ; i++ ){
-                auto dim = cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg(i)->remit(cg));
-
-                if(index == nullptr){
-                    index = dim;
-                }else{
-                    auto dim_size = cg.world.extract(tuple, i + 1);
-                    index = cg.world.op(Wrap::add, (nat_t)0, dim, cg.world.op(Wrap::mul, (nat_t)0, index, dim_size));
-                }
+            if(index == nullptr){
+                index = dim;
+            }else{
+                auto dim_size = cg.world.extract(tuple, i + 1);
+                index = cg.world.op(Wrap::add, (nat_t)0, dim, cg.world.op(Wrap::mul, (nat_t)0, index, dim_size));
             }
-
-            arr_ptr = cg.world.extract(tuple, (u64)0);
         }
 
+        const Def*  arr_ptr = cg.world.extract(tuple, (u64)0);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
-    }else if((isa_mat || is_mat_ref) && args().size() == 1){
-        index = arg(0)->remit(cg);
-
-        if(is_mat_ref){
-            auto agg = lhs()->lemit(cg);
-            return cg.load(cg.world.op_lea_unsafe(agg, index, cg.loc2dbg(loc())), loc());
-        }else{
-            auto tuple = lhs()->remit(cg);
-            return cg.world.extract(tuple, index);
-        }
     }else{
         auto agg = lhs()->lemit(cg);
 
