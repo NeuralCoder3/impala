@@ -884,11 +884,13 @@ const Def* TypeAppExpr::remit(CodeGen& /*cg*/) const { thorin::unreachable(); }
 
 const Def* MapExpr::lemit(CodeGen& cg) const {
     bool isa_mat = is_mat(lhs()->type());
-    auto ref_type = lhs()->type()->isa<RefType>();
-    bool is_mat_ref = ref_type && is_mat(ref_type->pointee());
+    if(!isa_mat){
+        auto ref_type = lhs()->type()->isa<RefType>();
+        isa_mat = ref_type && is_mat(ref_type->pointee());
+    }
 
     const Def* index = nullptr;
-    if((isa_mat || is_mat_ref)){
+    if(isa_mat){
         auto arity = args().size();
         auto tuple = lhs()->remit(cg);
 
@@ -903,7 +905,7 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             }
         }
 
-        const Def*  arr_ptr = cg.world.extract(tuple, (u64)0);
+        const Def* arr_ptr = cg.world.extract(tuple, (u64)0);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
     }else{
         auto agg = lhs()->lemit(cg);
