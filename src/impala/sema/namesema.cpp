@@ -418,6 +418,15 @@ void CreateMatrixExpr::bind(NameSema &sema) const {
     }
 }
 
+void WrapMatrixExpr::bind(NameSema &sema) const {
+    for(auto& expr : args()){
+        expr->bind(sema);
+    }
+    ptr_->bind(sema);
+}
+
+
+
 
 //------------------------------------------------------------------------------
 

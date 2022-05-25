@@ -131,6 +131,18 @@ bool CreateMatrixExpr::has_side_effect() const {
     return false;
 }
 
+bool WrapMatrixExpr::has_side_effect() const {
+    for( auto& expr : args() ){
+        if(expr->has_side_effect()){
+            return true;
+        }
+    }
+
+    return ptr_->has_side_effect();
+}
+
+
+
 
 
 

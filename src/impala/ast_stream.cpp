@@ -441,6 +441,8 @@ Stream& ForExpr::stream(Stream& s) const { return s.fmt("for {} in {} {}", fn_ex
 
 Stream& RevDiffExpr::stream(Stream& s) const { return s.fmt("rev_diff({})", expr()); }
 Stream& CreateMatrixExpr::stream(Stream& s) const { return s.fmt("mat[{}]({, })", elem_type(), args()); }
+Stream& WrapMatrixExpr::stream(Stream& s) const { return s.fmt("mat({}, {, })", ptr_, args()); }
+
 
 /*
  * patterns

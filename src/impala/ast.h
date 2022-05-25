@@ -1907,7 +1907,7 @@ private:
 class CreateMatrixExpr : public Expr, Args{
 public:
     CreateMatrixExpr(Loc loc, Exprs&& dims, const ASTType* matrix_type) :
-        Expr(loc) , Args(std::move(dims)), elem_type_(matrix_type) {}
+            Expr(loc) , Args(std::move(dims)), elem_type_(matrix_type) {}
 
     const ASTType* elem_type() const{
         return elem_type_;
@@ -1922,6 +1922,22 @@ private:
     const thorin::Def *remit(CodeGen &) const override;
 
     const ASTType* elem_type_;
+};
+
+class WrapMatrixExpr : public Expr, Args{
+public:
+    WrapMatrixExpr(Loc loc, const Expr *ptr, Exprs&& dims) :
+            Expr(loc), ptr_(dock(ptr_, ptr)), Args(std::move(dims)) {}
+
+    bool has_side_effect() const override;
+    void bind(NameSema &) const override;
+    Stream& stream(Stream&) const override;
+private:
+    const Type *infer(InferSema &) const override;
+    void check(TypeSema &) const override;
+    const thorin::Def *remit(CodeGen &) const override;
+
+    std::unique_ptr<const Expr> ptr_;
 };
 
 

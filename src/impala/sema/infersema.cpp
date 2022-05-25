@@ -1106,6 +1106,26 @@ const Type* CreateMatrixExpr::infer(InferSema& sema) const {
     return sema.matrix_type(args().size(), sema.infer(elem_type()));
 }
 
+const Type* WrapMatrixExpr::infer(InferSema& sema) const {
+    auto ptr_type = sema.infer(ptr_.get())->as<BorrowedPtrType>();
+
+    auto arrayType = ptr_type->pointee();
+
+    const Type* elem_type;
+    if(auto arr = arrayType->isa<ArrayType>()){
+        elem_type = arr->elem_type();
+    }else{
+        elem_type = arrayType;
+    }
+
+    for(auto& expr : args()){
+        sema.rvalue(expr.get());
+    }
+    return sema.matrix_type(args().size(), elem_type);
+}
+
+
+
 //------------------------------------------------------------------------------
 
 /*

@@ -154,6 +154,16 @@ public:
 
     const thorin::Def* rev_diff(const thorin::Def *primal) { return world.op_rev_diff(primal); }
 
+    DefArray remit_array(const Exprs& exprs){
+        DefArray defs{exprs.size()};
+
+        for(size_t i = 0 ; i < exprs.size() ; i++){
+            defs[i] = exprs[i]->remit(*this);
+        }
+
+        return defs;
+    }
+
     const thorin::Def* create_matrix(const Def* elem_type, const Exprs& dims ) {
         DefArray defs{dims.size()};
 
@@ -753,7 +763,8 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                     switch (op) {
                         case ADD: return cg.mop(MOp::add, RMode::none, ldef, rdef, dbg);
                         case SUB: return cg.mop(MOp::sub, RMode::none, ldef, rdef, dbg);
-                        case MUL: return cg.mop(MOp::mul, RMode::none, ldef, rdef, dbg);
+                        case DIV: return cg.mop(MOp::div, RMode::none, ldef, rdef, dbg);
+                        case MUL: return cg.mop(MOp::vec, RMode::none, ldef, rdef, dbg);
                         default: thorin::unreachable();
                     }
                 }else{
@@ -762,6 +773,7 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                             case ADD: return cg.mop(MOp::sadd, RMode::none, ldef, rdef, dbg);
                             case SUB: return cg.mop(MOp::ssub, RMode::none, ldef, rdef, dbg);
                             case MUL: return cg.mop(MOp::smul, RMode::none, ldef, rdef, dbg);
+                            case DIV: return cg.mop(MOp::sdiv, RMode::none, ldef, rdef, dbg);
                             default: thorin::unreachable();
                         }
                     }else{
@@ -1245,6 +1257,17 @@ const Def* RevDiffExpr::remit(CodeGen& cg) const {
 const Def* CreateMatrixExpr::remit(CodeGen& cg) const {
     auto elem_ty = cg.convert(elem_type()->type());
     return cg.create_matrix(elem_ty, args());
+}
+
+const Def* WrapMatrixExpr::remit(CodeGen& cg) const {
+    auto mat_type = cg.convert(type());
+
+    DefVec conv_defs;
+    for( auto& arg : args() ){
+        conv_defs.push_back(cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg->remit(cg)));
+    }
+
+    return cg.world.mat(mat_type, ptr_->remit(cg), conv_defs);
 }
 
 /*

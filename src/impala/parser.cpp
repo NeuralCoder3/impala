@@ -249,7 +249,7 @@ public:
     const BlockExpr*    parse_block_expr();
     const RevDiffExpr*  parse_rev_diff_expr();
 
-    const CreateMatrixExpr* parse_tensor_alloc();
+    const Expr*         parse_tensor_alloc();
 
     const BlockExpr*    try_block_expr(const std::string& context);
     const Expr*         parse_filter(const char* context);
@@ -1291,20 +1291,34 @@ const RevDiffExpr *Parser::parse_rev_diff_expr() {
     return new RevDiffExpr(tracker, expr);
 }
 
-const CreateMatrixExpr *Parser::parse_tensor_alloc() {
+const Expr *Parser::parse_tensor_alloc() {
     auto tracker = track();
     eat(Token::MAT);
-    expect(Token::L_BRACKET, "matrix expression");
-    auto type = parse_type();
-    expect(Token::R_BRACKET, "matrix expression");
-    expect(Token::L_PAREN, "matrix expression");
 
-    Exprs exprs;
-    parse_comma_list("matrix expression", Token::R_PAREN, [&] {
-        exprs.emplace_back(parse_expr());
-    });
+    if (accept(Token::L_BRACKET)){
+        auto type = parse_type();
+        expect(Token::R_BRACKET, "matrix expression");
+        expect(Token::L_PAREN, "matrix expression");
 
-    return new CreateMatrixExpr(tracker, std::move(exprs), type);
+        Exprs exprs;
+        parse_comma_list("matrix expression", Token::R_PAREN, [&] {
+            exprs.emplace_back(parse_expr());
+        });
+
+        return new CreateMatrixExpr(tracker, std::move(exprs), type);
+    }else{
+        expect(Token::L_PAREN, "matrix expression");
+        auto ptr = parse_expr();
+        expect(Token::COMMA, "matrix expression");
+
+        Exprs exprs;
+        parse_comma_list("matrix expression", Token::R_PAREN, [&] {
+            exprs.emplace_back(parse_expr());
+        });
+
+        return new WrapMatrixExpr(tracker, ptr, std::move(exprs));
+    }
+
 }
 
 /*
