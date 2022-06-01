@@ -699,7 +699,7 @@ const ASTType* Parser::parse_type() {
         case Token::TYPE_##itype:
 #include "impala/tokenlist.h"
                                 return parse_prim_type();
-        case Token::MAT:        return parse_matrix_type();
+        case Token::TENSOR:        return parse_matrix_type();
         case Token::FN:         return parse_fn_type();
         case Token::L_PAREN:    return parse_tuple_type();
         case Token::ID:         return parse_ast_type_app();
@@ -777,7 +777,7 @@ const PrimASTType* Parser::parse_prim_type() {
 
 const MatrixASTType* Parser::parse_matrix_type() {
     auto tracker = track();
-    eat(Token::MAT);
+    eat(Token::TENSOR);
     expect(Token::L_BRACKET, "parse_matrix_type");
     uint64_t dim_count = parse_integer("dim count");
     expect(Token::COLON, "parse_matrix_type");
@@ -1019,7 +1019,7 @@ const Expr* Parser::parse_primary_expr() {
         case Token::WHILE:         return parse_while_expr();
         case Token::L_BRACE:       return parse_block_expr();
         case Token::REV_DIFF:      return parse_rev_diff_expr();
-        case Token::MAT:           return parse_tensor_alloc();
+        case Token::TENSOR:           return parse_tensor_alloc();
         default:                   error("expression", ""); return new EmptyExpr(lex().loc());
         // clang-format on
     }
@@ -1293,7 +1293,7 @@ const RevDiffExpr *Parser::parse_rev_diff_expr() {
 
 const Expr *Parser::parse_tensor_alloc() {
     auto tracker = track();
-    eat(Token::MAT);
+    eat(Token::TENSOR);
 
     if (accept(Token::L_BRACKET)){
         auto type = parse_type();

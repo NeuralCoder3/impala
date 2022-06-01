@@ -777,6 +777,7 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
                             default: thorin::unreachable();
                         }
                     }else{
+                        auto elem_ty = lhs()->type()->as<MatrixType>()->elem_type();
                         switch (op) {
                             case ADD: return cg.mop(MOp::sadd, RMode::none, rdef, ldef, dbg);
                             case SUB: return cg.mop(MOp::sadd, RMode::none,
@@ -1053,10 +1054,11 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
             auto test = cg.world.tuple(result->ops());
             return result;
         }else if(identifier()->symbol() == "map"){
-            auto in_type = cg.world.type_real(64);
-            auto out_type = cg.world.type_real(64);
-            auto mapFunc = cg.world.cn_mem_ret_flat(in_type, out_type);
-            auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, out_type));
+            auto matrix_type = lhs()->type()->as<MatrixType>();
+            auto elem_type = cg.convert(matrix_type->elem_type());
+
+            auto mapFunc = cg.world.cn_mem_ret_flat(elem_type, elem_type);
+            auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, elem_type));
             Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.lit_true(), cg.world.dbg("map_stub"));
 
             auto [mem, result_mat] = cg.world.op_map(lam->mem_var(), tup, lam->var(1), {})->projs<2>();

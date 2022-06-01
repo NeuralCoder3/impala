@@ -105,7 +105,7 @@ IMPALA_KEY(TYPEOF,        "typeof")
 IMPALA_KEY(WHILE,         "while")
 IMPALA_KEY(SIMD,          "simd")
 IMPALA_KEY(REV_DIFF,      "rev_diff")
-IMPALA_KEY(MAT,           "mat")
+IMPALA_KEY(TENSOR,        "tn")
 
 #undef IMPALA_KEY
 
