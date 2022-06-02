@@ -913,12 +913,12 @@ const Def* MapExpr::lemit(CodeGen& cg) const {
             if(index == nullptr){
                 index = dim;
             }else{
-                auto dim_size = cg.world.extract(tuple, i + 1);
+                auto dim_size = cg.world.extract(tuple, i + 2);
                 index = cg.world.op(Wrap::add, (nat_t)0, dim, cg.world.op(Wrap::mul, (nat_t)0, index, dim_size));
             }
         }
 
-        const Def* arr_ptr = cg.world.extract(tuple, (u64)0);
+        const Def* arr_ptr = cg.world.extract(tuple, (u64)1);
         return cg.world.op_lea(arr_ptr, index, cg.loc2dbg(loc()));
     }else{
         auto agg = lhs()->lemit(cg);
@@ -1044,8 +1044,8 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
     if(auto matrixType = lhs()->type()->isa<MatrixType>()){
         if(identifier()->symbol() == "shape"){
             return cg.world.tuple({
-              cg.world.extract(tup,  1, cg.loc2dbg(loc())),
-              cg.world.extract(tup,  2, cg.loc2dbg(loc()))
+              cg.world.extract(tup,  2, cg.loc2dbg(loc())),
+              cg.world.extract(tup,  3, cg.loc2dbg(loc()))
             });
         }else if(identifier()->symbol() == "T"){
             return cg.unary_mop( MOp::transpose, RMode::none, tup );
@@ -1269,7 +1269,7 @@ const Def* WrapMatrixExpr::remit(CodeGen& cg) const {
         conv_defs.push_back(cg.world.op(Conv::u2u, cg.world.type_int_width(64), arg->remit(cg)));
     }
 
-    return cg.world.mat(mat_type, ptr_->remit(cg), conv_defs);
+    return cg.world.mat(mat_type, cg.world.lit_int_width(32, 0), ptr_->remit(cg), conv_defs);
 }
 
 /*

@@ -1019,7 +1019,7 @@ const Expr* Parser::parse_primary_expr() {
         case Token::WHILE:         return parse_while_expr();
         case Token::L_BRACE:       return parse_block_expr();
         case Token::REV_DIFF:      return parse_rev_diff_expr();
-        case Token::TENSOR:           return parse_tensor_alloc();
+        case Token::TENSOR:        return parse_tensor_alloc();
         default:                   error("expression", ""); return new EmptyExpr(lex().loc());
         // clang-format on
     }
