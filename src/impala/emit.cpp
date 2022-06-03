@@ -281,7 +281,7 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto indefinite_array_type = type->isa<IndefiniteArrayType>()) {
         return world.arr_unsafe(convert(indefinite_array_type->elem_type()));
     } else if(auto matrix_type = type->isa<MatrixType>()){
-        return world.type_mat(matrix_type->dim_count(), convert_rec(matrix_type->elem_type()));
+        return world.type_tn(matrix_type->dim_count(), convert_rec(matrix_type->elem_type()));
     } else if (type->isa<NoRetType>()) {
         return nullptr; // TODO use bottom type - once it is available in thorin
     }
@@ -1058,7 +1058,7 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
             auto elem_type = cg.convert(matrix_type->elem_type());
 
             auto mapFunc = cg.world.cn_mem_ret_flat(elem_type, elem_type);
-            auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_mat(2, elem_type));
+            auto lam_pi = cg.world.cn_mem_ret_flat(mapFunc, cg.world.type_tn(2, elem_type));
             Lam* lam = cg.world.nom_filter_lam(lam_pi, cg.world.lit_true(), cg.world.dbg("map_stub"));
 
             auto [mem, result_mat] = cg.world.op_map(lam->mem_var(), tup, lam->var(1), {})->projs<2>();
