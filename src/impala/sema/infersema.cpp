@@ -1009,6 +1009,26 @@ const Type* ForExpr::infer(InferSema& sema) const {
     return sema.unit();
 }
 
+const Type* ForRangeExpr::infer(InferSema& sema) const {
+    sema.rvalue(begin());
+    sema.rvalue(end());
+
+    auto fn = fn_expr();
+    auto begin_type = sema.infer(begin());
+    sema.infer(end(), begin_type);
+    Array<const Type*> arg_types;
+    auto return_cn = sema.fn_type(arg_types);
+    sema.constrain(break_decl_.get(), return_cn);
+
+    Array<const Type*> args(2);
+    args.front() = begin_type;
+    args.back() = return_cn;
+
+    sema.infer(fn_expr(), sema.fn_type(args));
+    sema.rvalue(fn_expr());
+    return sema.unit();
+}
+
 const Type* RevDiffExpr::infer(InferSema& sema) const {
     if (auto fn_type = sema.infer(expr())->isa<FnType>()) {
         return fn_type->rev_diffed_type();

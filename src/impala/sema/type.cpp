@@ -341,24 +341,76 @@ const Type* FnType::params_without_return_continuation() const {
     return types.size() == 1 ? types.front() : table().tuple_type(types);
 }
 
+const Type* FnType::flat_tuple(std::vector<const Type*> types) const {
+    return types.size() == 1 ? types[0] : table().tuple_type(types);
+}
+
 const Type* FnType::rev_diffed_type() const {
     if (!is_returning())
         return table().type_error();
 
-    auto in_tan = return_type()->tangent_vector();
-    auto out_tan = params_without_return_continuation()->tangent_vector();
+    auto param_types = domain()->ops().skip_back();
 
-    auto pbtype = table().fn_type(table().tuple_type({in_tan, table().fn_type(out_tan)}));
+    return_type()->dump();
+
+    //########### in tangent types
+    std::vector<const Type*> in_tan_types;
+    for( auto param_type : param_types ){
+        if(auto ptr_ty = param_type->isa<PtrType>()){
+            auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
+            in_tan_types.push_back(tan_ptr_type);
+        }
+    }
+
+    if(return_type()->isa<TupleType>()){
+        auto ret_types = return_type()->ops();
+        for( auto ret_ty : ret_types ){
+            if(auto ptr_ty = ret_ty->isa<PtrType>()){
+                auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
+                in_tan_types.push_back(tan_ptr_type);
+            }else{
+                in_tan_types.push_back(ret_ty);
+            }
+        }
+    }else{
+        if(auto ptr_ty = return_type()->isa<PtrType>()){
+            auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
+            in_tan_types.push_back(tan_ptr_type);
+        }else{
+            in_tan_types.push_back(return_type());
+        }
+    }
+
+
+    //########### out tangent types
+
+    std::vector<const Type*> out_tan_types;
+    for( auto param_type : param_types ){
+        out_tan_types.push_back(param_type);
+    }
+
+    auto out_tan = flat_tuple(out_tan_types);
+
+    in_tan_types.push_back(table().fn_type(out_tan));
+    auto in_tan = flat_tuple(in_tan_types);
+
+    auto pbtype = table().fn_type(in_tan);
     if (auto t = params_without_return_continuation()->isa<TupleType>()) {
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
         Array<const Type*> params(t->num_ops() + 1);
         for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
             params[i] = t->op(i);
         }
-        auto ret = table().tuple_type({return_type(), pbtype});
+
+        const Type* ret = pbtype;
+        if(return_type() != table().tuple_type({})){
+            ret = table().tuple_type({return_type(), pbtype});
+        }
+
         params.back() = table().fn_type(ret);
 
-        return table().fn_type(params);
+        auto result = table().fn_type(params);
+        return result;
     }
     else {
         Array<const Type*> params(2);
@@ -367,30 +419,6 @@ const Type* FnType::rev_diffed_type() const {
 
         return table().fn_type(params);
     }
-
-#if 0
-    // for now, we just say that in_tan is precisely the type of the singular seed value
-    if (auto t = params_without_return_continuation()->isa<TupleType>()) {
-        // fn(f32, f32) -> f32 becomes fn(f32, f32, f32) -> (f32, f32)
-        Array<const Type*> params(t->num_ops() + 1);
-        for (size_t i = 0; i < t->num_ops(); ++i) {
-            params[i] = t->op(i);
-        }
-        // TODO: we assume that out_tan is a scalar. This may change in the future.
-        auto ret = table().tuple_type({return_type(), out_tan});
-        params.back() = table().fn_type(ret);
-
-        return table().fn_type(params);
-    }
-    else {
-        Array<const Type*> params(3);
-        params[0] = params_without_return_continuation();
-        params[1] = in_tan;
-        params[2] = table().fn_type(table().tuple_type({return_type(), out_tan}));
-
-        return table().fn_type(params);
-    }
-#endif
 }
 
 /*

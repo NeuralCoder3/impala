@@ -409,6 +409,15 @@ void ForExpr::bind(NameSema& sema) const {
     sema.pop_scope();
 }
 
+void ForRangeExpr::bind(NameSema& sema) const {
+    begin()->bind(sema);
+    end()->bind(sema);
+    sema.push_scope();
+    break_decl()->bind(sema);
+    fn_expr()->bind(sema);
+    sema.pop_scope();
+}
+
 void RevDiffExpr::bind(NameSema &sema) const { expr()->bind(sema); }
 
 //------------------------------------------------------------------------------

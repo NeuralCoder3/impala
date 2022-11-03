@@ -117,6 +117,7 @@ bool MatchExpr::has_side_effect() const {
 
 bool WhileExpr::has_side_effect() const { return true; }
 bool ForExpr::has_side_effect() const { return true; }
+bool ForRangeExpr::has_side_effect() const { return true; }
 
 bool RevDiffExpr::has_side_effect() const { return expr()->has_side_effect(); }
 

@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
         Names breakpoints;
 #endif
         std::string out_name, log_name, log_level;
-        bool help, clos,
+        bool help, clos, autodiff,
              emit_cint, emit_thorin, emit_ast, emit_annotated,
              emit_llvm, opt_thorin, debug, fancy;
 
@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
             .add_option<std::string>     ("o",                  "", "specifies the output module name", out_name, "")
             .add_option<bool>            ("Othorin",            "", "optimize at Thorin level", opt_thorin, false)
             .add_option<bool>            ("clos",               "", "loads experimental 'clos' thorin dialect plugin", clos, false)
+            .add_option<bool>            ("autodiff",               "", "loads experimental 'autodiff' thorin dialect plugin", autodiff, false)
             .add_option<bool>            ("emit-annotated",     "", "emit AST of Impala program after semantic analysis", emit_annotated, false)
             .add_option<bool>            ("emit-ast",           "", "emit AST of Impala program", emit_ast, false)
             .add_option<bool>            ("emit-c-interface",   "", "emit C interface from Impala code (experimental)", emit_cint, false)
@@ -114,6 +115,7 @@ int main(int argc, char** argv) {
         std::vector<thorin::Dialect> dialects;
         std::vector<std::string> dialect_names{"affine", "core", "math", "mem"}, dialect_paths;
         if (clos) dialect_names.emplace_back("clos");
+        if (autodiff) dialect_names.emplace_back("autodiff");
         if (auto path = thorin::sys::path_to_curr_exe()) {
             dialect_paths.emplace_back(path->parent_path().parent_path() / "thorin2" / "lib" / "thorin");
         }

@@ -726,6 +726,12 @@ void ForExpr::check(TypeSema& sema) const {
     error(expr(), "the looping expression does not support the 'for' protocol");
 }
 
+void ForRangeExpr::check(TypeSema& sema) const {
+    sema.check(begin());
+    sema.check(end());
+    sema.check(fn_expr());
+}
+
 void RevDiffExpr::check(TypeSema& sema) const {
     auto fn_type = sema.check(expr())->isa<FnType>();
 
@@ -742,10 +748,10 @@ void RevDiffExpr::check(TypeSema& sema) const {
     // TODO: Functions may return multidimensional stuff.
     //       This needs to be patched later on with a more extensive check
     //       for functions that return an array of r32s.
-    if (!is_float(fn_type->return_type())) {
+    /*if (!is_float(fn_type->return_type())) {
         error(expr(), "the function does not return a float scalar");
 	    return;
-    }
+    }*/
 }
 
 //------------------------------------------------------------------------------

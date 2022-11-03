@@ -4,8 +4,10 @@
 #include "dialects/mem/mem.h"
 #include "dialects/core/core.h"
 #include "dialects/math/math.h"
+#include "dialects/affine/affine.h"
 #include "thorin/world.h"
 #include "thorin/util/array.h"
+#include "dialects/autodiff/autodiff.h"
 
 using namespace thorin;
 
@@ -133,7 +135,10 @@ public:
         return result;
     }
 
-    const thorin::Def* rev_diff(const thorin::Def* /*primal*/) { return nullptr; /*world.op_rev_diff(primal);*/ }
+    const thorin::Def* rev_diff(const thorin::Def* def) {
+        auto test = autodiff::op_autodiff(def);
+        return test;
+    }
 
     const thorin::Def* convert(const Type* type) {
         if (auto t = thorin_type(type))
@@ -820,6 +825,25 @@ const Def* MapExpr::remit(CodeGen& cg) const {
     if (auto cn = ltype->isa<FnType>()) {
         const Def* dst = nullptr;
 
+        auto callee = lhs();
+        if (auto path = callee->isa<PathExpr>()) {
+            if (auto fn_decl = path->value_decl()->isa<FnDecl>()) {
+                auto name = fn_decl->fn_symbol().remove_quotation();
+
+                if (name == "exp") {
+                    return math::op(math::exp::exp, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "max") {
+                    return math::op(math::extrema::maximum, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "lgamma") {
+                    return math::op(math::gamma::l, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "log") {
+                    return math::op(math::exp::log, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "free") {
+                    return mem::op_free(arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }
+            }
+        }
+
         // Handle primops here
         if (auto type_expr = lhs()->isa<TypeAppExpr>()) { // Bitcast, sizeof and select are all polymorphic
             auto callee = type_expr->lhs()->skip_rvalue();
@@ -1069,6 +1093,34 @@ const Def* WhileExpr::remit(CodeGen& cg) const {
     return cg.world.tuple();
 }
 
+const Def* ForRangeExpr::remit(CodeGen& cg) const {
+    auto break_bb = cg.create_lam(break_decl());
+
+    auto begin_def = begin()->remit(cg);
+    auto end_def = end()->remit(cg);
+
+    auto loop_body = fn_expr()->remit(cg);
+
+    auto loop_body_ty = loop_body->type()->as<thorin::Pi>();
+    auto loop_index_ty = loop_body_ty->dom(1);
+    auto mem_ty =  mem::type_mem(cg.world);
+
+    auto loop_body_wrapper = cg.world.nom_lam(cg.world.cn({loop_index_ty, mem_ty, cg.world.cn(mem_ty)}), loop_body->dbg());
+    loop_body_wrapper->set_filter(false);
+
+    auto [mem, index, cont] = loop_body_wrapper->vars<3>();
+    loop_body_wrapper->set_body(cg.world.app(loop_body, {index, mem, cont}));
+
+    auto size = as_lit(Idx::size(begin_def->type()));
+    auto affine_for = affine::op_for(cg.world, begin_def, end_def, cg.world.lit_idx(size, 1), {cg.cur_mem}, loop_body_wrapper, break_bb);
+
+    cg.cur_bb->set_filter(false);
+    cg.cur_bb->set_body(affine_for);
+
+    cg.enter(break_bb);
+    return cg.world.tuple();
+}
+
 const Def* ForExpr::remit(CodeGen& cg) const {
     std::vector<const Def*> args;
     args.push_back(nullptr); // reserve for mem but set later - some other args may update the monad
@@ -1104,8 +1156,7 @@ const Def* FnExpr::remit(CodeGen& cg) const {
 }
 
 const Def* RevDiffExpr::remit(CodeGen& cg) const {
-    return nullptr;
-    //return cg.rev_diff(expr()->remit(cg));
+    return cg.rev_diff(expr()->remit(cg));
 }
 
 /*

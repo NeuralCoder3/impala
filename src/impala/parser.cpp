@@ -242,7 +242,7 @@ public:
     const FnExpr*       parse_fn_expr(bool nested = false);
     const IfExpr*       parse_if_expr();
     const MatchExpr*    parse_match_expr();
-    const ForExpr*      parse_for_expr();
+    const Expr*         parse_for_expr();
     const ForExpr*      parse_with_expr();
     const WhileExpr*    parse_while_expr();
     const BlockExpr*    parse_block_expr();
@@ -1156,15 +1156,27 @@ const MatchExpr* Parser::parse_match_expr() {
     return new MatchExpr(tracker, expr, std::move(arms));
 }
 
-const ForExpr* Parser::parse_for_expr() {
+const Expr* Parser::parse_for_expr() {
     auto tracker = track();
     eat(Token::FOR);
     auto params = param_list() ? parse_param_list(Token::IN, true) : Params();
     params.emplace_back(create<Param>(create<Identifier>("continue"), nullptr));
     auto expr = parse_expr();
+
+    bool is_range = accept(Token::DOTDOT);
+    const Expr* end = nullptr;
+    if(is_range){
+        end = parse_expr();
+    }
+
     auto filter = parse_filter("partial evaluation filter of for loop");
     auto body = try_block_expr("body of for loop");
     auto break_decl = create_continuation_decl("break", /*set type during InferSema*/ false);
+
+    if(is_range){
+        return new ForRangeExpr(tracker, new FnExpr(tracker, filter, std::move(params), body), expr, end, break_decl);
+    }
+
     return new ForExpr(tracker, new FnExpr(tracker, filter, std::move(params), body), expr, break_decl);
 }
 

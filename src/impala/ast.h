@@ -1858,6 +1858,36 @@ private:
     std::unique_ptr<const LocalDecl> break_decl_;
 };
 
+class ForRangeExpr : public Expr {
+public:
+    ForRangeExpr(Loc loc, const Expr* fn_expr, const Expr* begin, const Expr* end, const LocalDecl* break_decl)
+            : Expr(loc)
+            , fn_expr_(dock(fn_expr_, fn_expr))
+            , begin_(dock(begin_, begin))
+            , end_(dock(end_, end))
+            , break_decl_(break_decl)
+    {}
+
+    const FnExpr* fn_expr() const { return fn_expr_.get()->as<FnExpr>(); }
+    const Expr* begin() const { return begin_.get(); }
+    const Expr* end() const { return end_.get(); }
+    const LocalDecl* break_decl() const { return break_decl_.get(); }
+
+    bool has_side_effect() const override;
+    void bind(NameSema&) const override;
+    Stream& stream(Stream&) const override;
+
+private:
+    const Type* infer(InferSema&) const override;
+    void check(TypeSema&) const override;
+    const thorin::Def* remit(CodeGen&) const override;
+
+    std::unique_ptr<const Expr> fn_expr_;
+    std::unique_ptr<const Expr> begin_;
+    std::unique_ptr<const Expr> end_;
+    std::unique_ptr<const LocalDecl> break_decl_;
+};
+
 class RevDiffExpr : public Expr {
 public:
     RevDiffExpr(Loc loc, const Expr *expr) : Expr(loc) , expr_(dock(expr_, expr)) {}

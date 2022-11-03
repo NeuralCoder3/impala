@@ -217,6 +217,7 @@ public:
 private:
     const Type* vrebuild(TypeTable&, Types) const override;
 
+    const Type* flat_tuple(std::vector<const Type*> types) const;
     const Type* params_without_return_continuation() const;
     const Type* grad_return_type() const;
     const Type* grad_with_val_return_type() const;

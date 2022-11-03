@@ -434,6 +434,7 @@ Stream& MatchExpr::Arm::stream(Stream& s) const { return s.fmt("{} => {}", ptrn(
 Stream& MatchExpr::stream(Stream& s) const { return s.fmt("match {} {{\t\n{,\n}\b\t}}", expr(), arms()); }
 Stream& WhileExpr::stream(Stream& s) const { return s.fmt("while {} {}", cond(), body()); }
 Stream& ForExpr::stream(Stream& s) const { return s.fmt("for {} in {} {}", fn_expr()->params().skip_back(), expr(), fn_expr()->body()); }
+Stream& ForRangeExpr::stream(Stream& s) const { return s.fmt("for {} in {} .. {} {}", fn_expr()->params().skip_back(), begin(), end(), fn_expr()->body()); }
 
 Stream& RevDiffExpr::stream(Stream& s) const { return s.fmt("rev_diff of {}", expr()); }
 
