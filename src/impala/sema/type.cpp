@@ -355,32 +355,19 @@ const Type* FnType::rev_diffed_type() const {
 
     //########### in tangent types
     std::vector<const Type*> in_tan_types;
-    for( auto param_type : param_types ){
-        if(auto ptr_ty = param_type->isa<PtrType>()){
-            auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
-            in_tan_types.push_back(tan_ptr_type);
-        }
-    }
 
     if(return_type()->isa<TupleType>()){
         auto ret_types = return_type()->ops();
         for( auto ret_ty : ret_types ){
-            if(auto ptr_ty = ret_ty->isa<PtrType>()){
-                auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
-                in_tan_types.push_back(tan_ptr_type);
-            }else{
+            if(!ret_ty->isa<PtrType>()){
                 in_tan_types.push_back(ret_ty);
             }
         }
     }else{
-        if(auto ptr_ty = return_type()->isa<PtrType>()){
-            auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
-            in_tan_types.push_back(tan_ptr_type);
-        }else{
+        if(!return_type()->isa<PtrType>()){
             in_tan_types.push_back(return_type());
         }
     }
-
 
     //########### out tangent types
 
@@ -397,9 +384,15 @@ const Type* FnType::rev_diffed_type() const {
     auto pbtype = table().fn_type(in_tan);
     if (auto t = params_without_return_continuation()->isa<TupleType>()) {
         // fn(f32) -> f32 becomes fn(f32) -> <f32, fn(f32) -> f32>
-        Array<const Type*> params(t->num_ops() + 1);
+        std::vector<const Type*> params;
         for (size_t i = 0, e = t->num_ops(); i < e; ++i) {
-            params[i] = t->op(i);
+            auto op = t->op(i);
+            params.push_back(op);
+
+            if(auto ptr_ty = op->isa<PtrType>()){
+                auto tan_ptr_type = table().borrowed_ptr_type(ptr_ty->pointee(), true, ptr_ty->addr_space());
+                params.push_back(tan_ptr_type);
+            }
         }
 
         const Type* ret = pbtype;
@@ -407,12 +400,12 @@ const Type* FnType::rev_diffed_type() const {
             ret = table().tuple_type({return_type(), pbtype});
         }
 
-        params.back() = table().fn_type(ret);
-
+        params.push_back(table().fn_type(ret));
         auto result = table().fn_type(params);
         return result;
     }
     else {
+        assert(false);
         Array<const Type*> params(2);
         params[0] = params_without_return_continuation();
         params[1] = table().fn_type(table().tuple_type({return_type(), pbtype}));
