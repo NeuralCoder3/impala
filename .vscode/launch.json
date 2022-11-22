@@ -1,0 +1,49 @@
+{
+    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "(gdb) Starten",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/impala",
+            "args": [
+                "${workspaceFolder}/../impala-adbench/matrix/impala/matrix.impala", 
+                //"${workspaceFolder}/impala-adbench/gmm/impala/native/gmm.impala", 
+                "--log-level",
+                "debug",
+                "-emit-llvm",
+                "-autodiff",
+                "-o",
+                "matrix"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "setupCommands": [
+                {
+                    "description": "Automatische Strukturierung und Einrückung für \"gdb\" aktivieren",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description":  "Disassemblierungsvariante auf Intel festlegen",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build",
+        },
+
+        {
+            "other":"settings",
+            "cmake.configureArgs": [ "-j 10", ]
+        }
+
+    ]
+}
