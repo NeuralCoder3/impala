@@ -838,6 +838,14 @@ const Def* MapExpr::remit(CodeGen& cg) const {
                     return math::op(math::gamma::l, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "log") {
                     return math::op(math::exp::log, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "tanh") {
+                    return math::op(math::tri::tanh, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "sin") {
+                    return math::op(math::tri::sin, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "cos") {
+                    return math::op(math::tri::cos, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "sqrt") {
+                    return math::op(math::rt::sq, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "free") {
                     return mem::op_free(arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }
