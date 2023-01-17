@@ -93,6 +93,11 @@
         "*.inc": "cpp",
         "cinttypes": "cpp",
         "__memory": "cpp",
-        "any": "cpp"
+        "any": "cpp",
+        "csignal": "cpp",
+        "future": "cpp",
+        "regex": "cpp",
+        "scoped_allocator": "cpp",
+        "valarray": "cpp"
     }
 }

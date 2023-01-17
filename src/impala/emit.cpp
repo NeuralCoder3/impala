@@ -832,6 +832,8 @@ const Def* MapExpr::remit(CodeGen& cg) const {
 
                 if (name == "exp") {
                     return math::op(math::exp::exp, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                }else if (name == "sigmoid") {
+                    return math::op(math::exp::sigmoid, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "max") {
                     return math::op(math::extrema::maximum, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "lgamma") {
@@ -847,7 +849,8 @@ const Def* MapExpr::remit(CodeGen& cg) const {
                 }else if (name == "sqrt") {
                     return math::op(math::rt::sq, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "free") {
-                    return mem::op_free(arg(0)->remit(cg), cg.loc2dbg(loc()));
+                    cg.cur_mem = mem::op_free( cg.cur_mem, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                    return cg.cur_mem;
                 }
             }
         }
