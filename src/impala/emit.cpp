@@ -1,13 +1,13 @@
-#include "impala/ast.h"
+#include "thorin/world.h"
 
-#include "dialects/math/math.h"
-#include "dialects/mem/mem.h"
+#include "thorin/util/array.h"
+
+#include "dialects/ad_imp/autodiff.h"
+#include "dialects/affine/affine.h"
 #include "dialects/core/core.h"
 #include "dialects/math/math.h"
-#include "dialects/affine/affine.h"
-#include "thorin/world.h"
-#include "thorin/util/array.h"
-#include "dialects/autodiff/autodiff.h"
+#include "dialects/mem/mem.h"
+#include "impala/ast.h"
 
 using namespace thorin;
 
@@ -16,8 +16,7 @@ namespace impala {
 class CodeGen {
 public:
     CodeGen(World& world)
-        : world(world)
-    {}
+        : world(world) {}
 
     const Def* loc2dbg(Loc loc) {
         return world.dbg({
@@ -50,7 +49,7 @@ public:
     Lam* basicblock(const Def* dbg) { return basicblock(nullptr, dbg); }
 
     Lam* enter(Lam* bb) {
-        cur_bb = bb;
+        cur_bb  = bb;
         cur_mem = bb->var(0_s);
         return bb;
     }
@@ -78,8 +77,7 @@ public:
         // if the return type is a sigma, flatten it
         auto sigma = ret_type->isa<thorin::Sigma>();
         if (sigma && !sigma->isa_nom()) {
-            for (auto op : sigma->ops())
-                cont_args.push_back(op);
+            for (auto op : sigma->ops()) cont_args.push_back(op);
         } else
             cont_args.push_back(ret_type);
 
@@ -97,8 +95,7 @@ public:
         const Def* ret = nullptr;
         if (sigma) {
             Array<const Def*> vars(next->num_vars() - 1);
-            for (size_t i = 1, e = next->num_vars(); i != e; ++i)
-                vars[i - 1] = next->var(i);
+            for (size_t i = 1, e = next->num_vars(); i != e; ++i) vars[i - 1] = next->var(i);
             ret = world.tuple(ret_type, vars, callee->dbg());
         } else
             ret = next->var(1, callee->dbg());
@@ -115,20 +112,20 @@ public:
 
     const Def* handle_mem_res(const Def* mem_res) {
         auto [mem, res] = mem_res->projs<2>();
-        cur_mem = mem;
+        cur_mem         = mem;
         return res;
     }
 
-    const Def* load(const Def*  ptr, Loc loc) { return handle_mem_res(mem::op_load(cur_mem, ptr, loc2dbg(loc))); }
+    const Def* load(const Def* ptr, Loc loc) { return handle_mem_res(mem::op_load(cur_mem, ptr, loc2dbg(loc))); }
     const Def* slot(const Def* type, const Def* dbg) { return handle_mem_res(mem::op_slot(type, cur_mem, dbg)); }
 
     void store(const Def* ptr, const Def* val, Loc loc) { cur_mem = mem::op_store(cur_mem, ptr, val, loc2dbg(loc)); }
 
     const Def* alloc(const thorin::Def* type, const Def* dbg) {
-        auto alloc = mem::op_alloc(type, cur_mem, dbg);
-        cur_mem = world.extract(alloc, 2_s, 0_s, dbg);
-        auto result = world.extract(alloc, 2, 1, dbg);
-        auto ptr = thorin::match<mem::Ptr, true>(result->type());
+        auto alloc                 = mem::op_alloc(type, cur_mem, dbg);
+        cur_mem                    = world.extract(alloc, 2_s, 0_s, dbg);
+        auto result                = world.extract(alloc, 2, 1, dbg);
+        auto ptr                   = thorin::match<mem::Ptr, true>(result->type());
         auto [pointee, addr_space] = ptr->args<2>();
         if (auto arr = pointee->isa<Arr>())
             return core::op_bitcast(mem::type_ptr(world.arr_unsafe(arr->body()), addr_space), result);
@@ -136,14 +133,13 @@ public:
     }
 
     const thorin::Def* rev_diff(const thorin::Def* def) {
-        auto test = autodiff::op_autodiff(def);
+        auto test = ad_imp::op_autodiff(def);
         return test;
     }
 
     const thorin::Def* convert(const Type* type) {
-        if (auto t = thorin_type(type))
-            return t;
-        auto t = convert_rec(type);
+        if (auto t = thorin_type(type)) return t;
+        auto t                   = convert_rec(type);
         return thorin_type(type) = t;
     }
 
@@ -157,8 +153,8 @@ public:
     const Fn* cur_fn = nullptr;
     TypeMap<const thorin::Def*> impala2thorin_;
     GIDMap<const StructType*, const thorin::Sigma*> struct_type_impala2thorin_;
-    GIDMap<const EnumType*,   const thorin::Sigma*> enum_type_impala2thorin_;
-    Lam* cur_bb = nullptr;
+    GIDMap<const EnumType*, const thorin::Sigma*> enum_type_impala2thorin_;
+    Lam* cur_bb        = nullptr;
     const Def* cur_mem = nullptr;
 };
 
@@ -169,7 +165,7 @@ public:
 const thorin::Def* CodeGen::convert_rec(const Type* type) {
     if (auto lambda = type->isa<Lambda>()) {
         auto body = convert(lambda->body());
-        auto pi = world.pi(world.type(), body->type());
+        auto pi   = world.pi(world.type(), body->type());
         return world.lam(pi, body, world.dbg(lambda->name()));
     } else if (auto prim_type = type->isa<PrimType>()) {
         switch (prim_type->primtype_tag()) {
@@ -192,21 +188,18 @@ const thorin::Def* CodeGen::convert_rec(const Type* type) {
     } else if (auto cn = type->isa<FnType>()) {
         std::vector<const thorin::Def*> nops;
         nops.push_back(mem::type_mem(world));
-        for (size_t i = 0, e = cn->num_params(); i != e; ++i)
-            nops.push_back(convert(cn->param(i)));
+        for (size_t i = 0, e = cn->num_params(); i != e; ++i) nops.push_back(convert(cn->param(i)));
         return world.cn(nops);
     } else if (auto tuple_type = type->isa<TupleType>()) {
         std::vector<const thorin::Def*> nops;
-        for (auto&& op : tuple_type->ops())
-            nops.push_back(convert(op));
+        for (auto&& op : tuple_type->ops()) nops.push_back(convert(op));
         return world.sigma(nops);
     } else if (auto struct_type = type->isa<StructType>()) {
         auto s = world.nom_sigma(struct_type->num_ops(), world.dbg(struct_type->struct_decl()->symbol().c_str()));
         thorin_struct_type(struct_type) = s;
-        thorin_type(type) = s;
-        size_t i = 0;
-        for (auto&& op : struct_type->ops())
-            s->set(i++, convert(op));
+        thorin_type(type)               = s;
+        size_t i                        = 0;
+        for (auto&& op : struct_type->ops()) s->set(i++, convert(op));
         thorin_type(type) = nullptr; // will be set again by CodeGen's wrapper
         return s;
 #if 0
@@ -250,10 +243,10 @@ void LocalDecl::emit(CodeGen& cg, const Def* init) const {
     assert(def_ == nullptr);
 
     auto thorin_type = cg.convert(type());
-    init = init ? init : cg.world.bot(thorin_type);
+    init             = init ? init : cg.world.bot(thorin_type);
 
     if (is_mut()) {
-        def_ = cg.slot(thorin_type, cg.debug(this));
+        def_       = cg.slot(thorin_type, cg.debug(this));
         cg.cur_mem = mem::op_store(cg.cur_mem, def_, init, cg.loc2dbg(loc()));
     } else {
         def_ = init;
@@ -262,14 +255,13 @@ void LocalDecl::emit(CodeGen& cg, const Def* init) const {
 
 const thorin::Def* OptionDecl::variant_type(CodeGen& cg) const {
     std::vector<const thorin::Def*> types;
-    for (auto&& arg : args())
-        types.push_back(cg.convert(arg->type()));
+    for (auto&& arg : args()) types.push_back(cg.convert(arg->type()));
     if (num_args() == 1) return types.back();
     return cg.world.sigma(types);
 }
 
 Lam* Fn::fn_emit_head(CodeGen& cg, Loc loc) const {
-    auto t = cg.convert(fn_type())->as<thorin::Pi>();
+    auto t      = cg.convert(fn_type())->as<thorin::Pi>();
     return lam_ = cg.world.nom_lam(t, cg.loc2dbg(fn_symbol().remove_quotation().c_str(), loc));
 }
 
@@ -277,15 +269,15 @@ void Fn::fn_emit_body(CodeGen& cg, Loc loc) const {
     // setup function nest
     auto old_fn = cg.cur_fn;
     auto old_bb = cg.cur_bb;
-    cg.cur_fn = this;
-    cg.cur_bb = lam();
+    cg.cur_fn   = this;
+    cg.cur_bb   = lam();
 
     auto old_mem = cg.cur_mem;
 
     // setup memory
-    size_t i = 0;
+    size_t i       = 0;
     auto mem_param = lam()->var(i++, cg.world.dbg("mem"));
-    cg.cur_mem = mem_param;
+    cg.cur_mem     = mem_param;
 
     // name vars and setup store locs
     for (auto&& param : params()) {
@@ -293,8 +285,7 @@ void Fn::fn_emit_body(CodeGen& cg, Loc loc) const {
         param->emit(cg, var);
     }
 
-    if (lam()->num_vars() != 0 && lam()->vars().back()->type()->isa<Pi>())
-        ret_param_ = lam()->vars().back();
+    if (lam()->num_vars() != 0 && lam()->vars().back()->type()->isa<Pi>()) ret_param_ = lam()->vars().back();
 
     // descend into body
     auto def = body()->remit(cg);
@@ -302,8 +293,7 @@ void Fn::fn_emit_body(CodeGen& cg, Loc loc) const {
         // flatten returned values
         if (auto tuple = body()->type()->isa<TupleType>()) {
             Array<const Def*> ret_values(tuple->num_ops() + 1);
-            for (size_t i = 0, e = tuple->num_ops(); i != e; ++i)
-                ret_values[i + 1] = cg.world.extract(def, e, i);
+            for (size_t i = 0, e = tuple->num_ops(); i != e; ++i) ret_values[i + 1] = cg.world.extract(def, e, i);
             ret_values[0] = cg.cur_mem;
             cg.cur_bb->app(false, ret_param(), ret_values, cg.loc2dbg(loc.finis()));
         } else
@@ -340,22 +330,18 @@ static bool is_primop(const Symbol& name) {
 void FnDecl::emit_head(CodeGen& cg) const {
     assert(def_ == nullptr);
     // no code is emitted for primops
-    if (is_extern() && abi() == "\"thorin\"" && is_primop(symbol()))
-        return;
+    if (is_extern() && abi() == "\"thorin\"" && is_primop(symbol())) return;
 
     // create thorin function
     def_ = fn_emit_head(cg, loc());
-    if (is_extern() && abi() == "")
-        lam_->make_external();
+    if (is_extern() && abi() == "") lam_->make_external();
 
     // handle main function
-    if (symbol() == "main" && !lam()->is_external())
-        lam()->make_external();
+    if (symbol() == "main" && !lam()->is_external()) lam()->make_external();
 }
 
 void FnDecl::emit(CodeGen& cg) const {
-    if (body())
-        fn_emit_body(cg, loc());
+    if (body()) fn_emit_body(cg, loc());
 }
 
 void ExternBlock::emit_head(CodeGen& cg) const {
@@ -366,9 +352,7 @@ void ExternBlock::emit_head(CodeGen& cg) const {
             // do nothing
         } else if (abi() == "\"device\"")
             assert(false && "TODO");
-        else if (abi() == "\"thorin\"" && lam) {
-            assert(false && "TODO");
-        }
+        else if (abi() == "\"thorin\"" && lam) { assert(false && "TODO"); }
     }
 }
 
@@ -376,9 +360,9 @@ void ModuleDecl::emit(CodeGen&) const {}
 void ImplItem::emit(CodeGen&) const {}
 
 void StaticItem::emit_head(CodeGen& cg) const {
-    auto t = cg.convert(type());
+    auto t   = cg.convert(type());
     auto bot = cg.world.bot(t);
-    auto g = cg.world.global(mem::type_ptr(t), is_mut(), cg.loc2dbg(loc()));
+    auto g   = cg.world.global(mem::type_ptr(t), is_mut(), cg.loc2dbg(loc()));
     g->set(bot);
     def_ = g;
 }
@@ -387,9 +371,7 @@ void StaticItem::emit(CodeGen& cg) const {
     if (init()) def_->as_nom<Global>()->set(init()->remit(cg));
 }
 
-void StructDecl::emit_head(CodeGen& cg) const {
-    cg.convert(type());
-}
+void StructDecl::emit_head(CodeGen& cg) const { cg.convert(type()); }
 
 void OptionDecl::emit(CodeGen& /*cg*/) const {
 #if 0
@@ -415,8 +397,7 @@ void OptionDecl::emit(CodeGen& /*cg*/) const {
 }
 
 void EnumDecl::emit_head(CodeGen& cg) const {
-    for (auto&& option_decl : option_decls())
-        option_decl->emit(cg);
+    for (auto&& option_decl : option_decls()) option_decl->emit(cg);
     cg.convert(type());
 }
 
@@ -451,24 +432,21 @@ const Def* LiteralExpr::remit(CodeGen& cg) const {
     }
 }
 
-const Def* CharExpr::remit(CodeGen& cg) const {
-    return cg.world.lit_idx<u8>(value(), cg.loc2dbg(loc()));
-}
+const Def* CharExpr::remit(CodeGen& cg) const { return cg.world.lit_idx<u8>(value(), cg.loc2dbg(loc())); }
 
 const Def* StrExpr::remit(CodeGen& cg) const {
     Array<const Def*> args(values_.size());
-    for (size_t i = 0, e = args.size(); i != e; ++i)
-        args[i] = cg.world.lit_idx<u8>(values_[i], cg.loc2dbg(loc()));
+    for (size_t i = 0, e = args.size(); i != e; ++i) args[i] = cg.world.lit_idx<u8>(values_[i], cg.loc2dbg(loc()));
 
     return cg.world.tuple(args, cg.loc2dbg(loc()));
 }
 
 const Def* CastExpr::remit(CodeGen& cg) const {
-    auto def = src()->remit(cg);
+    auto def      = src()->remit(cg);
     auto src_type = src()->type();
     auto dst_type = type();
-    auto dst = cg.convert(dst_type);
-    auto dbg = cg.loc2dbg(loc());
+    auto dst      = cg.convert(dst_type);
+    auto dbg      = cg.loc2dbg(loc());
 
     if (src_type->isa<PtrType>() || dst_type->isa<PtrType>()) {
         return core::op_bitcast(dst, def, dbg);
@@ -507,8 +485,7 @@ const Def* RValueExpr::lemit(CodeGen& cg) const {
 }
 
 const Def* RValueExpr::remit(CodeGen& cg) const {
-    if (src()->type()->isa<RefType>())
-        return cg.load(lemit(cg), loc());
+    if (src()->type()->isa<RefType>()) return cg.load(lemit(cg), loc());
     return src()->remit(cg);
 }
 
@@ -527,10 +504,10 @@ const Def* PathExpr::remit(CodeGen& cg) const {
     // But the hack no longer works if the order is reversed:
     // static b = a;
     // static a = 1;
-    // In this case, during the emission of 'static b = a', the static item 'a' has not been replaced yet and is considered mutable.
+    // In this case, during the emission of 'static b = a', the static item 'a' has not been replaced yet and is
+    // considered mutable.
     auto global = def->isa<Global>();
-    if (global && !global->is_mutable())
-        return global->init();
+    if (global && !global->is_mutable()) return global->init();
     return value_decl()->is_mut() || global ? cg.load(def, loc()) : def;
 }
 
@@ -546,9 +523,11 @@ const Def* PrefixExpr::remit(CodeGen& cg) const {
             auto val = cg.load(var, loc());
             auto one = cg.lit_one(type(), cg.loc2dbg(loc()));
             if (is_int(type()))
-                val = core::op(tag() == INC ? core::wrap ::add : core::wrap ::sub, type2wmode(type()), val, one, cg.loc2dbg(loc()));
+                val = core::op(tag() == INC ? core::wrap ::add : core::wrap ::sub, type2wmode(type()), val, one,
+                               cg.loc2dbg(loc()));
             else
-                val = math::op(tag() == INC ? math::arith::add : math::arith::sub, math::Mode::none, val, one, cg.loc2dbg(loc()));
+                val = math::op(tag() == INC ? math::arith::add : math::arith::sub, math::Mode::none, val, one,
+                               cg.loc2dbg(loc()));
             cg.store(var, val, loc());
             return val;
         }
@@ -560,8 +539,7 @@ const Def* PrefixExpr::remit(CodeGen& cg) const {
             } else {
                 return math::op_rminus(math::Mode::none, rhs()->remit(cg), cg.loc2dbg(loc()));
             }
-        case NOT:
-            return core::op_negate(rhs()->remit(cg), cg.loc2dbg(loc()));
+        case NOT: return core::op_negate(rhs()->remit(cg), cg.loc2dbg(loc()));
         case TILDE: {
             auto def = rhs()->remit(cg);
             auto ptr = cg.alloc(def->type(), cg.loc2dbg(loc()));
@@ -569,8 +547,7 @@ const Def* PrefixExpr::remit(CodeGen& cg) const {
             return ptr;
         }
         case AND: {
-            if (rhs()->type()->isa<RefType>())
-                return rhs()->lemit(cg);
+            if (rhs()->type()->isa<RefType>()) return rhs()->lemit(cg);
 
             auto def = rhs()->remit(cg);
             if (def->dep_const()) {
@@ -600,8 +577,7 @@ const Def* PrefixExpr::remit(CodeGen& cg) const {
         }
         case OR:
         case OROR: thorin::unreachable();
-        default:
-            return cg.load(lemit(cg), loc());
+        default: return cg.load(lemit(cg), loc());
     }
 }
 
@@ -619,21 +595,18 @@ void InfixExpr::emit_branch(CodeGen& cg, Lam* jump_t, Lam* jump_f) const {
     auto jump_type = jump_t->type();
     switch (tag()) {
         case OROR: {
-                auto or_f = cg.world.nom_lam(jump_type, cg.loc2dbg("or_f", loc().finis()));
-                lhs()->emit_branch(cg, jump_t, or_f);
-                cg.enter(or_f);
-                rhs()->emit_branch(cg, jump_t, jump_f);
-            }
-            break;
+            auto or_f = cg.world.nom_lam(jump_type, cg.loc2dbg("or_f", loc().finis()));
+            lhs()->emit_branch(cg, jump_t, or_f);
+            cg.enter(or_f);
+            rhs()->emit_branch(cg, jump_t, jump_f);
+        } break;
         case ANDAND: {
-                auto and_t = cg.world.nom_lam(jump_type, cg.loc2dbg("and_t", loc().finis()));
-                lhs()->emit_branch(cg, and_t, jump_f);
-                cg.enter(and_t);
-                rhs()->emit_branch(cg, jump_t, jump_f);
-            }
-            break;
-        default:
-            return Expr::emit_branch(cg, jump_t, jump_f);
+            auto and_t = cg.world.nom_lam(jump_type, cg.loc2dbg("and_t", loc().finis()));
+            lhs()->emit_branch(cg, and_t, jump_f);
+            cg.enter(and_t);
+            rhs()->emit_branch(cg, jump_t, jump_f);
+        } break;
+        default: return Expr::emit_branch(cg, jump_t, jump_f);
     }
 }
 
@@ -766,48 +739,45 @@ const Def* InfixExpr::remit(CodeGen& cg) const {
 }
 
 const Def* PostfixExpr::remit(CodeGen& cg) const {
-    auto var = lhs()->lemit(cg);
-    auto res = cg.load(var, loc());
-    auto one = cg.lit_one(type(), cg.loc2dbg(loc()));
+    auto var       = lhs()->lemit(cg);
+    auto res       = cg.load(var, loc());
+    auto one       = cg.lit_one(type(), cg.loc2dbg(loc()));
     const Def* val = nullptr;
 
     if (is_int(type()))
-        val = core::op(tag() == INC ? core::wrap ::add : core::wrap ::sub, type2wmode(type()), res, one, cg.loc2dbg(loc()));
+        val = core::op(tag() == INC ? core::wrap ::add : core::wrap ::sub, type2wmode(type()), res, one,
+                       cg.loc2dbg(loc()));
     else
-        val = math::op(tag() == INC ? math::arith::add : math::arith::sub, math::Mode::none, res, one, cg.loc2dbg(loc()));
+        val =
+            math::op(tag() == INC ? math::arith::add : math::arith::sub, math::Mode::none, res, one, cg.loc2dbg(loc()));
     cg.store(var, val, loc());
     return res;
 }
 
 const Def* DefiniteArrayExpr::remit(CodeGen& cg) const {
     Array<const Def*> thorin_args(num_args());
-    for (size_t i = 0, e = num_args(); i != e; ++i)
-        thorin_args[i] = arg(i)->remit(cg);
+    for (size_t i = 0, e = num_args(); i != e; ++i) thorin_args[i] = arg(i)->remit(cg);
     return cg.world.tuple(thorin_args, cg.loc2dbg(loc()));
 }
 
-const Def* RepeatedDefiniteArrayExpr::remit(CodeGen& cg) const {
-    return cg.world.pack(count(), value()->remit(cg));
-}
+const Def* RepeatedDefiniteArrayExpr::remit(CodeGen& cg) const { return cg.world.pack(count(), value()->remit(cg)); }
 
 const Def* TupleExpr::remit(CodeGen& cg) const {
     Array<const Def*> thorin_args(num_args());
-    for (size_t i = 0, e = num_args(); i != e; ++i)
-        thorin_args[i] = arg(i)->remit(cg);
+    for (size_t i = 0, e = num_args(); i != e; ++i) thorin_args[i] = arg(i)->remit(cg);
     return cg.world.tuple(thorin_args, cg.loc2dbg(loc()));
 }
 
 const Def* IndefiniteArrayExpr::remit(CodeGen& cg) const {
     auto dim_int = op(core::conv::u2u, cg.world.type_int(64), dim()->remit(cg));
-    auto arity = core::op_bitcast(cg.world.type_nat(), dim_int);
-    auto elem = cg.convert(type()->as<IndefiniteArrayType>()->elem_type());
+    auto arity   = core::op_bitcast(cg.world.type_nat(), dim_int);
+    auto elem    = cg.convert(type()->as<IndefiniteArrayType>()->elem_type());
     return cg.world.pack(arity, cg.world.bot(elem), cg.loc2dbg(loc()));
 }
 
 const Def* StructExpr::remit(CodeGen& cg) const {
     Array<const Def*> defs(num_elems());
-    for (auto&& elem : elems())
-        defs[elem->field_decl()->index()] = elem->expr()->remit(cg);
+    for (auto&& elem : elems()) defs[elem->field_decl()->index()] = elem->expr()->remit(cg);
     return cg.world.tuple(cg.convert(type())->as<thorin::Sigma>(), defs, cg.loc2dbg(loc()));
 }
 
@@ -832,24 +802,25 @@ const Def* MapExpr::remit(CodeGen& cg) const {
 
                 if (name == "exp") {
                     return math::op(math::exp::exp, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "sigmoid") {
+                } else if (name == "sigmoid") {
                     return math::op(math::exp::sigmoid, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "max") {
-                    return math::op(math::extrema::maximum, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "lgamma") {
+                } else if (name == "max") {
+                    return math::op(math::extrema::fmax, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg),
+                                    cg.loc2dbg(loc()));
+                } else if (name == "lgamma") {
                     return math::op(math::gamma::l, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "log") {
+                } else if (name == "log") {
                     return math::op(math::exp::log, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "tanh") {
+                } else if (name == "tanh") {
                     return math::op(math::tri::tanh, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "sin") {
+                } else if (name == "sin") {
                     return math::op(math::tri::sin, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "cos") {
+                } else if (name == "cos") {
                     return math::op(math::tri::cos, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "sqrt") {
+                } else if (name == "sqrt") {
                     return math::op(math::rt::sq, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
-                }else if (name == "free") {
-                    cg.cur_mem = mem::op_free( cg.cur_mem, arg(0)->remit(cg), cg.loc2dbg(loc()));
+                } else if (name == "free") {
+                    cg.cur_mem = mem::op_free(cg.cur_mem, arg(0)->remit(cg), cg.loc2dbg(loc()));
                     return cg.cur_mem;
                 }
             }
@@ -863,61 +834,63 @@ const Def* MapExpr::remit(CodeGen& cg) const {
                     if (fn_decl->is_extern() && fn_decl->abi() == "\"thorin\"") {
                         auto name = fn_decl->fn_symbol().remove_quotation();
                         if (name == "bitcast") {
-                            return core::op_bitcast(cg.convert(type_expr->type_arg(0)), arg(0)->remit(cg), cg.loc2dbg(loc()));
+                            return core::op_bitcast(cg.convert(type_expr->type_arg(0)), arg(0)->remit(cg),
+                                                    cg.loc2dbg(loc()));
                         } else if (name == "select") {
-                            return cg.world.extract(cg.world.tuple({arg(2)->remit(cg), arg(1)->remit(cg)}), arg(0)->remit(cg), cg.loc2dbg(loc()));
+                            return cg.world.extract(cg.world.tuple({arg(2)->remit(cg), arg(1)->remit(cg)}),
+                                                    arg(0)->remit(cg), cg.loc2dbg(loc()));
                         } else if (name == "insert") {
-                            return core::insert_unsafe(arg(0)->remit(cg), arg(1)->remit(cg), arg(2)->remit(cg), cg.loc2dbg(loc()));
+                            return core::insert_unsafe(arg(0)->remit(cg), arg(1)->remit(cg), arg(2)->remit(cg),
+                                                       cg.loc2dbg(loc()));
                         } else if (name == "alignof") {
-                            return core::op_bitcast(cg.world.type_int(32), core::op(core::trait::align, cg.convert(type_expr->type_arg(0)), cg.loc2dbg(loc())));
+                            return core::op_bitcast(
+                                cg.world.type_int(32),
+                                core::op(core::trait::align, cg.convert(type_expr->type_arg(0)), cg.loc2dbg(loc())));
                         } else if (name == "sizeof") {
-                            return core::op_bitcast(cg.world.type_int(32), core::op(core::trait::size , cg.convert(type_expr->type_arg(0)), cg.loc2dbg(loc())));
+                            return core::op_bitcast(
+                                cg.world.type_int(32),
+                                core::op(core::trait::size, cg.convert(type_expr->type_arg(0)), cg.loc2dbg(loc())));
                         } else if (name == "undef") {
                             return cg.world.bot(cg.convert(type_expr->type_arg(0)), cg.loc2dbg(loc()));
                         } else if (name == "reserve_shared") {
-                            auto ptr = cg.convert(type());
-                            auto cn = cg.world.cn({
-                                mem::type_mem(cg.world), cg.world.type_int(32),
-                                cg.world.cn({ mem::type_mem(cg.world), ptr }) });
+                            auto ptr  = cg.convert(type());
+                            auto cn   = cg.world.cn({mem::type_mem(cg.world), cg.world.type_int(32),
+                                                     cg.world.cn({mem::type_mem(cg.world), ptr})});
                             auto cont = cg.world.nom_lam(cn, cg.loc2dbg("reserve_shared", loc()));
-                            //cont->set_intrinsic();
+                            // cont->set_intrinsic();
                             dst = cont;
                         } else if (name == "atomic") {
                             auto poly_type = cg.convert(type());
-                            auto ptr = cg.convert(arg(1)->type());
-                            auto cn = cg.world.cn({
-                                mem::type_mem(cg.world), cg.world.type_int(32), ptr, poly_type,
-                                cg.world.cn({ mem::type_mem(cg.world), poly_type }) });
+                            auto ptr       = cg.convert(arg(1)->type());
+                            auto cn   = cg.world.cn({mem::type_mem(cg.world), cg.world.type_int(32), ptr, poly_type,
+                                                     cg.world.cn({mem::type_mem(cg.world), poly_type})});
                             auto cont = cg.world.nom_lam(cn, cg.loc2dbg("atomic", loc()));
-                            //cont->set_intrinsic();
+                            // cont->set_intrinsic();
                             dst = cont;
                         } else if (name == "cmpxchg") {
-                            auto ptr = thorin::match<mem::Ptr, true>(cg.convert(arg(0)->type()));
+                            auto ptr                   = thorin::match<mem::Ptr, true>(cg.convert(arg(0)->type()));
                             auto [pointee, addr_space] = ptr->args<2>();
-                            auto poly_type = pointee;
-                            auto cn = cg.world.cn({
-                                mem::type_mem(cg.world), ptr, poly_type, poly_type,
-                                cg.world.cn({ mem::type_mem(cg.world), poly_type, cg.world.type_bool() })
-                            });
+                            auto poly_type             = pointee;
+                            auto cn =
+                                cg.world.cn({mem::type_mem(cg.world), ptr, poly_type, poly_type,
+                                             cg.world.cn({mem::type_mem(cg.world), poly_type, cg.world.type_bool()})});
                             auto cont = cg.world.nom_lam(cn, cg.loc2dbg("cmpxchg", loc()));
-                            //cont->set_intrinsic();
+                            // cont->set_intrinsic();
                             dst = cont;
                         } else if (name == "pe_info") {
-                            auto poly_type = cg.convert(arg(1)->type());
+                            auto poly_type   = cg.convert(arg(1)->type());
                             auto string_type = mem::type_ptr(cg.world.arr_unsafe(cg.world.type_int(8)));
-                            auto cn = cg.world.cn({
-                                mem::type_mem(cg.world), string_type, poly_type,
-                                cg.world.cn({ mem::type_mem(cg.world) }) });
-                            auto cont = cg.world.nom_lam(cn, cg.loc2dbg("pe_info", loc()));
-                            //cont->set_intrinsic();
+                            auto cn          = cg.world.cn({mem::type_mem(cg.world), string_type, poly_type,
+                                                            cg.world.cn({mem::type_mem(cg.world)})});
+                            auto cont        = cg.world.nom_lam(cn, cg.loc2dbg("pe_info", loc()));
+                            // cont->set_intrinsic();
                             dst = cont;
                         } else if (name == "pe_known") {
                             auto poly_type = cg.convert(arg(0)->type());
-                            auto cn = cg.world.cn({
-                                mem::type_mem(cg.world), poly_type,
-                                cg.world.cn({ mem::type_mem(cg.world), cg.world.type_bool() }) });
-                            auto cont = cg.world.nom_lam(cn, cg.loc2dbg("pe_known", loc()));
-                            //cont->set_intrinsic();
+                            auto cn        = cg.world.cn({mem::type_mem(cg.world), poly_type,
+                                                          cg.world.cn({mem::type_mem(cg.world), cg.world.type_bool()})});
+                            auto cont      = cg.world.nom_lam(cn, cg.loc2dbg("pe_known", loc()));
+                            // cont->set_intrinsic();
                             dst = cont;
                         }
                     }
@@ -928,16 +901,15 @@ const Def* MapExpr::remit(CodeGen& cg) const {
         dst = dst ? dst : lhs()->remit(cg);
 
         std::vector<const Def*> defs;
-        defs.push_back(nullptr);    // reserve for mem but set later - some other args may update mem
-        for (auto&& arg : args())
-            defs.push_back(arg.get()->remit(cg));
+        defs.push_back(nullptr); // reserve for mem but set later - some other args may update mem
+        for (auto&& arg : args()) defs.push_back(arg.get()->remit(cg));
         defs.front() = cg.cur_mem; // now get the current memory value
 
         auto ret_type = num_args() == cn->num_params() ? nullptr : cg.convert(cn->return_type());
         const Def* ret;
-        std::tie(cg.cur_bb, ret) = cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()));
-        if (ret_type)
-            cg.cur_mem = cg.cur_bb->var(0_s);
+        std::tie(cg.cur_bb, ret) =
+            cg.call(dst, defs, ret_type, cg.loc2dbg((dst->debug().name + "_cont").c_str(), loc()));
+        if (ret_type) cg.cur_mem = cg.cur_bb->var(0_s);
 
         return ret;
     } else if (ltype->isa<ArrayType>() || ltype->isa<TupleType>()) {
@@ -959,8 +931,7 @@ const Def* FieldExpr::remit(CodeGen& cg) const {
 
 const Def* BlockExpr::remit(CodeGen& cg) const {
     for (auto&& stmt : stmts()) {
-        if (auto item_stmnt = stmt->isa<ItemStmt>())
-            item_stmnt->item()->emit_head(cg);
+        if (auto item_stmnt = stmt->isa<ItemStmt>()) item_stmnt->item()->emit_head(cg);
     }
 
     for (auto&& stmt : stmts()) stmt->emit(cg);
@@ -971,10 +942,11 @@ const Def* BlockExpr::remit(CodeGen& cg) const {
 const Def* IfExpr::remit(CodeGen& cg) const {
     auto thorin_type = cg.convert(type());
 
-    auto jump_type = cg.world.cn({ mem::type_mem(cg.world) });
-    auto if_then = cg.world.nom_lam(jump_type, cg.loc2dbg("if_then", then_expr()->loc().begin()));
-    auto if_else = cg.world.nom_lam(jump_type, cg.loc2dbg("if_else", else_expr()->loc().begin()));
-    auto if_join = thorin_type ? cg.basicblock(thorin_type, cg.loc2dbg("if_join", loc().finis())) : nullptr; // TODO rewrite with bottom type
+    auto jump_type = cg.world.cn({mem::type_mem(cg.world)});
+    auto if_then   = cg.world.nom_lam(jump_type, cg.loc2dbg("if_then", then_expr()->loc().begin()));
+    auto if_else   = cg.world.nom_lam(jump_type, cg.loc2dbg("if_else", else_expr()->loc().begin()));
+    auto if_join   = thorin_type ? cg.basicblock(thorin_type, cg.loc2dbg("if_join", loc().finis()))
+                                 : nullptr; // TODO rewrite with bottom type
 
     cond()->emit_branch(cg, if_then, if_else);
 
@@ -986,8 +958,7 @@ const Def* IfExpr::remit(CodeGen& cg) const {
     if (auto fdef = else_expr()->remit(cg))
         cg.cur_bb->app(false, if_join, {cg.cur_mem, fdef}, cg.loc2dbg(loc().finis()));
 
-    if (thorin_type)
-        return cg.enter(if_join)->var(1);
+    if (thorin_type) return cg.enter(if_join)->var(1);
     return nullptr; // TODO use bottom type
 }
 
@@ -1080,10 +1051,10 @@ const Def* WhileExpr::remit(CodeGen& cg) const {
     head_bb->var(0, cg.world.dbg("mem"));
 
     auto jump_type = cg.world.cn({mem::type_mem(cg.world)});
-    auto body_bb = cg.world.nom_lam(jump_type, cg.loc2dbg("while_body", body()->loc().begin()));
-    auto exit_bb = cg.world.nom_lam(jump_type, cg.loc2dbg("while_exit", body()->loc().finis()));
-    auto cont_bb = cg.create_lam(continue_decl());
-    auto brk__bb = cg.create_lam(break_decl());
+    auto body_bb   = cg.world.nom_lam(jump_type, cg.loc2dbg("while_body", body()->loc().begin()));
+    auto exit_bb   = cg.world.nom_lam(jump_type, cg.loc2dbg("while_exit", body()->loc().finis()));
+    auto cont_bb   = cg.create_lam(continue_decl());
+    auto brk__bb   = cg.create_lam(break_decl());
 
     cg.cur_bb->app(false, head_bb, {cg.cur_mem}, cg.loc2dbg(cond()->loc().finis()));
 
@@ -1108,22 +1079,24 @@ const Def* ForRangeExpr::remit(CodeGen& cg) const {
     auto break_bb = cg.create_lam(break_decl());
 
     auto begin_def = begin()->remit(cg);
-    auto end_def = end()->remit(cg);
+    auto end_def   = end()->remit(cg);
 
     auto loop_body = fn_expr()->remit(cg);
 
-    auto loop_body_ty = loop_body->type()->as<thorin::Pi>();
+    auto loop_body_ty  = loop_body->type()->as<thorin::Pi>();
     auto loop_index_ty = loop_body_ty->dom(1);
-    auto mem_ty =  mem::type_mem(cg.world);
+    auto mem_ty        = mem::type_mem(cg.world);
 
-    auto loop_body_wrapper = cg.world.nom_lam(cg.world.cn({loop_index_ty, mem_ty, cg.world.cn(mem_ty)}), loop_body->dbg());
+    auto loop_body_wrapper =
+        cg.world.nom_lam(cg.world.cn({loop_index_ty, mem_ty, cg.world.cn(mem_ty)}), loop_body->dbg());
     loop_body_wrapper->set_filter(false);
 
     auto [mem, index, cont] = loop_body_wrapper->vars<3>();
     loop_body_wrapper->set_body(cg.world.app(loop_body, {index, mem, cont}));
 
-    auto size = as_lit(Idx::size(begin_def->type()));
-    auto affine_for = affine::op_for(cg.world, begin_def, end_def, cg.world.lit_idx(size, 1), {cg.cur_mem}, loop_body_wrapper, break_bb);
+    auto size       = as_lit(Idx::size(begin_def->type()));
+    auto affine_for = affine::op_for(cg.world, begin_def, end_def, cg.world.lit_idx(size, 1), {cg.cur_mem},
+                                     loop_body_wrapper, break_bb);
 
     cg.cur_bb->set_filter(false);
     cg.cur_bb->set_body(affine_for);
@@ -1140,8 +1113,7 @@ const Def* ForExpr::remit(CodeGen& cg) const {
 
     // emit call
     auto map_expr = expr()->as<MapExpr>();
-    for (auto&& arg : map_expr->args())
-        args.push_back(arg.get()->remit(cg));
+    for (auto&& arg : map_expr->args()) args.push_back(arg.get()->remit(cg));
     args.push_back(fn_expr()->remit(cg));
     args.push_back(break_bb);
     auto fun = map_expr->lhs()->remit(cg);
@@ -1153,9 +1125,8 @@ const Def* ForExpr::remit(CodeGen& cg) const {
     if (break_bb->num_vars() == 2)
         return break_bb->var(1);
     else {
-        Array<const Def*> args(break_bb->num_vars()-1);
-        for (size_t i = 0, e = args.size(); i != e; ++i)
-            args[i] = break_bb->var(i+1);
+        Array<const Def*> args(break_bb->num_vars() - 1);
+        for (size_t i = 0, e = args.size(); i != e; ++i) args[i] = break_bb->var(i + 1);
         return cg.world.tuple(args, cg.loc2dbg(loc()));
     }
 }
@@ -1166,39 +1137,37 @@ const Def* FnExpr::remit(CodeGen& cg) const {
     return lam;
 }
 
-const Def* RevDiffExpr::remit(CodeGen& cg) const {
-    return cg.rev_diff(expr()->remit(cg));
-}
+const Def* RevDiffExpr::remit(CodeGen& cg) const { return cg.rev_diff(expr()->remit(cg)); }
 
 /*
  * patterns
  */
 
-void IdPtrn::emit(CodeGen& cg, const thorin::Def* init) const {
-    local()->emit(cg, init);
-}
+void IdPtrn::emit(CodeGen& cg, const thorin::Def* init) const { local()->emit(cg, init); }
 
 const thorin::Def* IdPtrn::emit_cond(CodeGen& cg, const thorin::Def*) const { return cg.world.lit_tt(); }
 
 void EnumPtrn::emit(CodeGen& cg, const thorin::Def* init) const {
     if (num_args() == 0) return;
     auto variant_type = path()->decl()->as<OptionDecl>()->variant_type(cg);
-    auto variant = core::op_bitcast(variant_type, cg.world.extract(init, num_args(), 1), cg.loc2dbg(loc()));
+    auto variant      = core::op_bitcast(variant_type, cg.world.extract(init, num_args(), 1), cg.loc2dbg(loc()));
     for (size_t i = 0, e = num_args(); i != e; ++i) {
         arg(i)->emit(cg, num_args() == 1 ? variant : cg.world.extract(variant, num_args(), i, cg.loc2dbg(loc())));
     }
 }
 
 const thorin::Def* EnumPtrn::emit_cond(CodeGen& cg, const thorin::Def* init) const {
-    auto index = path()->decl()->as<OptionDecl>()->index();
+    auto index  = path()->decl()->as<OptionDecl>()->index();
     auto init_0 = cg.world.extract(init, num_args(), 0_u32, cg.loc2dbg(loc()));
-    auto cond = core::op(core::icmp::e, init_0, cg.world.lit_idx(u32(index), cg.loc2dbg(loc())));
+    auto cond   = core::op(core::icmp::e, init_0, cg.world.lit_idx(u32(index), cg.loc2dbg(loc())));
     if (num_args() > 0) {
         auto variant_type = path()->decl()->as<OptionDecl>()->variant_type(cg);
-        auto variant = core::op_bitcast(variant_type, cg.world.extract(init, num_args(), 1, cg.loc2dbg(loc())), cg.loc2dbg(loc()));
+        auto variant =
+            core::op_bitcast(variant_type, cg.world.extract(init, num_args(), 1, cg.loc2dbg(loc())), cg.loc2dbg(loc()));
         for (size_t i = 0, e = num_args(); i != e; ++i) {
             if (!arg(i)->is_refutable()) continue;
-            auto arg_cond = arg(i)->emit_cond(cg, num_args() == 1 ? variant : cg.world.extract(variant, num_args(), i, cg.loc2dbg(loc())));
+            auto arg_cond = arg(i)->emit_cond(
+                cg, num_args() == 1 ? variant : cg.world.extract(variant, num_args(), i, cg.loc2dbg(loc())));
             cond = core::op(core::bit2::and_, cond, arg_cond, cg.loc2dbg(loc()));
         }
     }
@@ -1206,8 +1175,7 @@ const thorin::Def* EnumPtrn::emit_cond(CodeGen& cg, const thorin::Def* init) con
 }
 
 void TuplePtrn::emit(CodeGen& cg, const thorin::Def* init) const {
-    for (size_t i = 0, e = num_elems(); i != e; ++i)
-        elem(i)->emit(cg, cg.world.extract(init, e, i, cg.loc2dbg(loc())));
+    for (size_t i = 0, e = num_elems(); i != e; ++i) elem(i)->emit(cg, cg.world.extract(init, e, i, cg.loc2dbg(loc())));
 }
 
 const thorin::Def* TuplePtrn::emit_cond(CodeGen& cg, const thorin::Def* init) const {
@@ -1216,7 +1184,7 @@ const thorin::Def* TuplePtrn::emit_cond(CodeGen& cg, const thorin::Def* init) co
         if (!elem(i)->is_refutable()) continue;
 
         auto next = elem(i)->emit_cond(cg, cg.world.extract(init, num_elems(), i, cg.loc2dbg(loc())));
-        cond = cond ? core::op(core::bit2::and_, cond, next) : next;
+        cond      = cond ? core::op(core::bit2::and_, cond, next) : next;
     }
     return cond ? cond : cg.world.lit_tt();
 }
@@ -1239,9 +1207,7 @@ const thorin::Def* LiteralPtrn::emit_cond(CodeGen& cg, const thorin::Def* init) 
     return core::op(core::icmp::e, init, emit(cg));
 }
 
-const thorin::Def* CharPtrn::emit(CodeGen& cg) const {
-    return chr()->remit(cg);
-}
+const thorin::Def* CharPtrn::emit(CodeGen& cg) const { return chr()->remit(cg); }
 
 void CharPtrn::emit(CodeGen&, const thorin::Def*) const {}
 
@@ -1299,4 +1265,4 @@ void emit(World& world, const Module* mod) {
 
 //------------------------------------------------------------------------------
 
-}
+} // namespace impala
