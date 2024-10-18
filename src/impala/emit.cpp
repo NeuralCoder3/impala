@@ -835,7 +835,7 @@ const Def* MapExpr::remit(CodeGen& cg) const {
                 }else if (name == "sigmoid") {
                     return math::op(math::exp::sigmoid, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "max") {
-                    return math::op(math::extrema::maximum, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg), cg.loc2dbg(loc()));
+                    return math::op(math::extrema::maxnum, math::Mode::fast, arg(0)->remit(cg), arg(1)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "lgamma") {
                     return math::op(math::gamma::l, math::Mode::fast, arg(0)->remit(cg), cg.loc2dbg(loc()));
                 }else if (name == "log") {
